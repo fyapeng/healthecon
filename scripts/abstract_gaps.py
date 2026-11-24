@@ -24,7 +24,7 @@ def harvest(cache):
         for w in rows
         if not w["hasAbstract"] and w["id"].startswith("10.") and w["id"] not in seen
     )
-    batches = [ids[i : i + 25] for i in range(0, len(ids), 25)]
+    batches = [ids[i : i + 10] for i in range(0, len(ids), 10)]
     with ThreadPoolExecutor(max_workers=3) as pool:
         list(pool.map(lambda batch: fetch_batch(cache, batch), batches))
     print("Completed", len(ids), "DOI lookups")

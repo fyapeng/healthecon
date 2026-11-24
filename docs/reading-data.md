@@ -18,3 +18,5 @@
 - 五刊卷期与 DOI 的对照使用 Econ Journal Authors 的冻结版，沿用其 CC BY 4.0 署名。AER 的 2012、2013 年第 3 期按 AEA 确认为 Papers and Proceedings，单列。部分早期论文有多个 DOI，同刊、同卷、同起页及同一标准化题名才合并。当前卷期参考 Wiley 与出版者提供给 RePEc 的 Econometrica 目录。
 - NBER 日期和项目来自官方批量表。专业期刊交叉核对 OpenAlex、PubMed 及 Europe PMC。英文摘要优先采用能对应同一 DOI 的期刊记录。工作论文摘要另标；已有译文与对应原文一起呈现。SenLab 仅复用公开书目字段，个人笔记和本地文件不属于公共数据。
 - 相关来源：[卷期目录](https://github.com/kochiuyu/econ-journal-authors/tree/c54c997888859067223103b659f4ee98d059b71b/releases/articles_toc_2010_2025)、[AEA 期务说明](https://swlb2.aeaweb.org/content/file?id=842)、[Econometrica 卷期](https://ideas.repec.org/s/wly/emetrp.html)、[Europe PMC](https://europepmc.org/RestfulWebService)、[NBER](https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata)。
+
+发布时更新 index.html 引用脚本的版本号。前端对数据请求使用相同的版本号，避免缓存使旧脚本与新快照混合。

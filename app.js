@@ -264,7 +264,7 @@ function library(p) {
       "文献概览",
       "按年份、期刊、主题或研究地点查找论文，展开条目即可阅读摘要。",
     ) +
-    `<form class="controls"><input name="q" aria-label="题名、作者或 DOI" placeholder="题名、作者或 DOI" value="${esc(q)}">${select("venue", "所有期刊或系列", [...new Set([...jnames, "Journal of Health Economics", "Health Economics", "NBER", "arXiv", venue].filter(Boolean))], venue)}${select("year", "全部年份", [...new Set(works.map((w) => w.year).filter(Boolean))].sort().reverse(), year)}${select("topic", "全部主题", unique("topic"), topic)}${select("method", "摘要提及的方法", [...new Set(works.flatMap((w) => w.methodMentions || []))].sort(), p.get("method") || "")}${select("region", "国家或研究场景", unique("region"), region)}<select name="scope" aria-label="目录范围"><option value="">健康研究目录</option><option value="all" ${scope === "all" ? "selected" : ""}>跨学科目录</option></select><button>筛选</button><a href="#library">重置</a></form>
+    `<form class="controls"><input name="q" aria-label="题名、作者或 DOI" placeholder="题名、作者或 DOI" value="${esc(q)}">${select("venue", "所有期刊或系列", [...new Set([...jnames, "Journal of Health Economics", "Health Economics", "NBER", "arXiv", "SSRN", venue].filter(Boolean))], venue)}${select("year", "全部年份", [...new Set(works.map((w) => w.year).filter(Boolean))].sort().reverse(), year)}${select("topic", "全部主题", unique("topic"), topic)}${select("method", "摘要提及的方法", [...new Set(works.flatMap((w) => w.methodMentions || []))].sort(), p.get("method") || "")}${select("region", "国家或研究场景", unique("region"), region)}<select name="scope" aria-label="目录范围"><option value="">健康研究目录</option><option value="all" ${scope === "all" ? "selected" : ""}>跨学科目录</option></select><button>筛选</button><a href="#library">重置</a></form>
   <div class="row"><p class="meta">${set ? esc(set) + " · " : ""}${period ? "本年清单 · " : ""}共 ${fmt(visible.length)} 条 · 按年份降序</p><button id="export">导出当前书目</button></div><div class="list">${
     visible
       .slice((page - 1) * 24, page * 24)
@@ -393,7 +393,9 @@ function render() {
     };
 }
 async function get(file) {
-  const r = await fetch("data/" + file + ".json");
+  const url = new URL("data/" + file + ".json", import.meta.url);
+  url.search = new URL(import.meta.url).search;
+  const r = await fetch(url);
   if (!r.ok) throw Error(file);
   return r.json();
 }

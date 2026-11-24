@@ -344,6 +344,10 @@ def build(args):
     for key, w in papers.items():
         w.pop("abstractAvailable", None)
         w["health"] = bool(w.get("health")) or w["venue"] in SPECIAL
+        if key.startswith("10.2139/ssrn."):
+            w["venue"] = "SSRN"
+            if "abstract" in details[key]:
+                details[key]["abstract"]["version"] = WORKING
         if w["venue"] not in JOURNALS:
             continue
         if key in toc:
