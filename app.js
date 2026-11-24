@@ -17,7 +17,7 @@ function render() {
     if (a.hash === "#" + view) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current");
   });
   if (view === "topics") {
-    app.innerHTML = `<div class="hero"><div class="kicker">HEALTHLAB</div><h1>健康经济学研究</h1><p>查找文献，追踪研究问题，比较不同制度下的经验证据。</p><div class="metrics"><div><b>${fmt(works.length)}</b><span>书目记录</span></div><div><b>${topics.length}</b><span>研究专题</span></div></div></div>
+    app.innerHTML = `<div class="hero"><div class="kicker">HEALTHECON</div><h1>健康经济学研究</h1><p>查找文献，追踪研究问题，比较不同制度下的经验证据。</p><div class="metrics"><div><b>${fmt(works.length)}</b><span>书目记录</span></div><div><b>${topics.length}</b><span>研究专题</span></div></div></div>
     <section><h2>研究专题</h2>${topics.map(t => `<article class="topic"><h3>${esc(t.name)}</h3><p>${esc(t.description)}</p><p class="meta">${fmt(Object.keys(t.notes).length)} 条摘要初读意见 · ${fmt(t.order.length)} 条已排序发现记录</p><div class="actions"><a class="btn" href="${esc(link("library",{topic:t.id,scope:"notes"}))}">阅读初读意见</a><a class="btn" href="${esc(link("library",{topic:t.id}))}">浏览专题线索</a></div></article>`).join("")}</section>`;
     return;
   }

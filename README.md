@@ -1,8 +1,8 @@
-# HealthLab
+# healthecon
 
-HealthLab 是健康经济学综述与选题研究的公共书目网站。读者可以浏览研究专题、检索跨来源文献、按年份和来源查看收录趋势。
+healthecon 是健康经济学综述与选题研究的公共书目网站。读者可以浏览研究专题、检索跨来源文献、按年份和来源查看收录趋势。
 
-[打开 HealthLab](https://fyapeng.github.io/healthlab/)
+[打开 healthecon](https://fyapeng.com/healthecon/)
 
 ## 当前覆盖
 
