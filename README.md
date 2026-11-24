@@ -20,4 +20,6 @@
 - europe_pmc.py 和 specialist_catalog.py 按 ISSN 分别取得摘要和专业期刊卷期记录，接收缓存目录与 --cutoff。书目补全保留原文来源。首次生成公开索引后，可运行 abstract_gaps.py 以仍缺摘要的 DOI 跨刊补查，运行 crossref_abstracts.py 按刊比对出版社提交的摘要，再生成索引。
 - 专业期刊卷期、欧洲PMC、跨刊摘要、出版社摘要等缓存目录位于本地书目项目的“采集”目录下。研究型论文与期务/待核记录的原始处理见 document_types.py、data/document_audit.json。archive-curation.json 存放增补选录与主题；最终分组、版本关系和去重理由见 reading_archive.py。
 - open_copies.py 从 OpenAlex 补充开放版本位置。部分条目只有出版社链接。
-- [Econ Journal Authors 的冻结卷期目录](https://github.com/kochiuyu/econ-journal-authors/tree/c54c997888859067223103b659f4ee98d059b71b/releases/articles_toc_2010_2025)采用 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。本站按刊年选取记录，校正会议期标记并汇总。首页图像为 Mary Cassatt 1893 年作品《孩子的沐浴》，来自[芝加哥艺术博物馆公共领域馆藏](https://www.artic.edu/artworks/111442/the-child-s-bath)。
+- [Econ Journal Authors 的冻结卷期目录](https://github.com/kochiuyu/econ-journal-authors/tree/c54c997888859067223103b659f4ee98d059b71b/releases/articles_toc_2010_2025)采用 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。本站按刊年选取记录，校正会议期标记并汇总。首页街灯版画为本期研究配制的 AI 生成插图。
+
+本地采集 JHE 的卷期字段可运行 `scripts/jhe_issues.py <书目项目>/采集/JHE卷期/0167-6296.json`，再重建索引。卷期号来自 Crossref 出版者记录，年份沿用已核对的本站目录。

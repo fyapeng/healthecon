@@ -3,23 +3,36 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#153e38" />
+    <meta name="theme-color" content="#faf7f1" />
     <meta
       name="description"
       content="探索健康经济学的问题、方法、五大刊发表趋势和工作论文。"
     />
     <title>healthecon · 健康经济学研究观察</title>
-    <link rel="stylesheet" href="style.css?v=20261124-archive2" />
+    <link rel="stylesheet" href="style.css?v=20261124-edition1" />
   </head>
   <body>
     <header>
       <div class="wrap top">
         <a class="logo" href="#home">health<i>econ</i></a>
-        <nav aria-label="主导航">
-          <a href="#home">首页</a><a href="#trends">Top 5 趋势</a
-          ><a href="#library">文献概览</a><a href="#frontier">工作论文</a
-          ><a href="#atlas">研究主题</a><a href="#about">关于</a>
+        <button
+          class="menu-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="main-nav"
+        >
+          栏目 <span aria-hidden="true">≡</span>
+        </button>
+        <nav id="main-nav" aria-label="主导航">
+          <a href="#home">首页</a><a href="#top5">Top 5</a
+          ><a href="#nber">NBER</a><a href="#jhe">JHE</a
+          ><a href="#library">文献概览</a><a href="#atlas">研究主题</a
+          ><a href="#about">关于</a>
         </nav>
+        <div class="clock" title="访问者所在时区的实时时间">
+          <small id="clock-zone">当地时间</small
+          ><time id="clock-time" role="timer" aria-live="off"></time>
+        </div>
       </div>
     </header>
     <main id="app" class="wrap" aria-live="polite">正在载入研究目录…</main>
@@ -33,6 +46,6 @@
         ><a href="https://github.com/fyapeng/healthecon">GitHub ↗</a>
       </div>
     </footer>
-    <script type="module" src="app.js?v=20261124-archive2"></script>
+    <script type="module" src="app.js?v=20261124-edition1"></script>
   </body>
 </html>

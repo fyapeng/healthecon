@@ -1,27 +1,20 @@
+import {
+  journals as jnames,
+  jhe,
+  escapeText as esc,
+  routeLink as href,
+  lineFigure,
+  topSeries,
+  nberSeries,
+  bars,
+} from "./figures.js?v=20261124-edition1";
 const el = document.querySelector("#app");
 const fmt = (n) => Number(n).toLocaleString("zh-CN");
-const esc = (s) =>
-  String(s ?? "").replace(
-    /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ],
-  );
-const href = (page, values = {}) =>
-  "#" +
-  page +
-  "?" +
-  new URLSearchParams(
-    Object.entries(values).filter(([, v]) => v !== "" && v != null),
-  );
 const btn = (title, page, params = {}) =>
   `<a class="btn" href="${esc(href(page, params))}">${esc(title)}</a>`;
-const jnames = ["AER", "QJE", "JPE", "REStud", "Econometrica"];
 const detailCache = new Map();
 let stats, byId;
 let works,
-  frontier,
   current,
   openCopies = {};
 const options = (arr, v) =>
@@ -53,7 +46,7 @@ function paper(w, expanded = false) {
     w.venue === "NBER" && /^10[.]3386\/w[0-9]+$/.test(w.id)
       ? `<a href="https://www.nber.org/papers/${w.id.slice(8)}" target="_blank" rel="noopener">NBER 全文入口 ↗</a>`
       : "";
-  return `<article class="paper"><div class="meta">${esc(w.year)} · ${esc(w.venue)}${w.set === "本年在线" ? " · 提前在线" : ""}${w.articleType ? " · " + esc(w.articleType) : ""}</div><h3><a href="${esc(internal)}">${esc(w.titleZh || w.title)}</a></h3>${w.titleZh ? `<p lang="en">${esc(w.title)}</p>` : ""}${w.question ? `<p>${esc(w.question)}</p>` : ""}<div class="meta">${esc((w.authors || "").replaceAll(" | ", ", "))}</div>${[
+  return `<article class="paper"><div class="meta">${esc(w.date || w.year)} · ${esc(w.venue)}${w.volume ? " · 卷 " + esc(w.volume) : ""}${w.issue ? " · 第 " + esc(w.issue) + " 期" : ""}${w.set === "本年在线" ? " · 提前在线" : ""}${w.articleType ? " · " + esc(w.articleType) : ""}</div><h3><a href="${esc(internal)}">${esc(w.titleZh || w.title)}</a></h3>${w.titleZh ? `<p lang="en">${esc(w.title)}</p>` : ""}${w.question ? `<p>${esc(w.question)}</p>` : ""}<div class="meta">${esc((w.authors || "").replaceAll(" | ", ", "))}</div>${[
     w.topic,
     w.region,
   ]
@@ -123,181 +116,293 @@ async function readDetail(node) {
 function cards(items) {
   return `<div class="cards">${items.map(([n, t, desc, page, filter]) => `<a href="${esc(href(page, filter))}">${n ? `<b>${esc(n)}</b>` : ""}<h3>${esc(t)} ↗</h3><p>${esc(desc)}</p></a>`).join("")}</div>`;
 }
-function home() {
-  return `<div class="hero"><div class="copy"><span class="eyebrow">健康经济学研究观察</span><h1>健康如何改变<br>我们的选择？</h1><p>一笔自付费用会让谁放弃治疗？医生如何决定给谁做检查？新药诞生以后，哪些人能够用上它？健康经济学研究健康、资源与人的选择如何相互影响。</p><div class="actions">${btn("探索五大刊趋势 →", "trends")}<a href="#atlas">从研究问题开始 ↗</a></div></div><figure><img src="assets/cassatt.jpg" alt="玛丽·卡萨特画中的家庭照护场景"><figcaption>玛丽·卡萨特《孩子的沐浴》，1893</figcaption></figure></div>
-  <section><h2>从三个问题走进这个领域</h2>${cards([
-    [
-      "",
-      "谁承担疾病的代价？",
-      "保险分摊风险，也会改变就医、用药与参保选择。",
-      "library",
-      { topic: "健康保险" },
-    ],
-    [
-      "",
-      "医疗服务由谁决定？",
-      "医生的判断、医院的容量和支付规则共同影响患者得到的照护。",
-      "library",
-      { topic: "医疗供给" },
-    ],
-    [
-      "",
-      "创新如何到达患者？",
-      "药品价格、临床证据与创新激励决定技术如何被使用。",
-      "library",
-      { topic: "药品与创新" },
-    ],
-  ])}</section>
-  <section class="box"><h2>在正式发表之前</h2><p>工作论文让我们更早看到正在讨论的问题。按发布年份查看 NBER 卫生经济学项目的变化，或浏览 arXiv 经济学分类中的健康研究。</p>${btn("查看工作论文 →", "frontier")}</section>`;
-}
-function chart(points, venue, metric) {
-  const width = 920,
-    left = 42,
-    right = 20,
-    bottom = 170;
-  const ceiling = Math.max(
-    1,
-    Math.ceil(Math.max(...points.map((p) => p.value)) * 1.15),
-  );
-  const x = (i) => left + (i * (width - left - right)) / (points.length - 1);
-  const y = (v) => bottom - (130 * v) / ceiling;
-  const ticks = [0, 0.5, 1]
-    .map(
-      (t) =>
-        `<line x1="${left}" x2="${width - right}" y1="${y(t * ceiling)}" y2="${y(t * ceiling)}"/><text x="1" y="${y(t * ceiling) + 5}">${+(t * ceiling).toFixed(1)}${metric !== "count" ? "%" : ""}</text>`,
-    )
-    .join("");
-  const dots = points
-    .map((p, i) => {
-      const value =
-        metric !== "count" ? p.value.toFixed(1) + "%" : p.value + " 篇";
-      const caption = `${p.year} · ${value}${metric !== "count" ? " (" + p.count + "/" + p.total + ")" : ""}`;
-      return `<a href="${esc(href("library", { venue, year: p.year, series: metric === "share" ? "toc" : metric === "indexed" ? "issue" : "trend" }))}" aria-label="${esc(caption)}"><title>${esc(caption)}</title><circle cx="${x(i)}" cy="${y(p.value)}" r="5"/>${i === 0 || i === points.length - 1 || Number(p.year) % 4 === 0 ? `<text x="${x(i)}" y="198" text-anchor="middle">${p.year}</text>` : ""}</a>`;
-    })
-    .join("");
-  return `<svg class="chart" viewBox="0 0 ${width} 210" role="group" aria-label="五大刊年度发表情况">${ticks}<polyline points="${points.map((p, i) => x(i) + "," + y(p.value)).join(" ")}"/>${dots}</svg>`;
-}
-function trends(p) {
-  const j = jnames.includes(p.get("venue")) ? p.get("venue") : "",
-    metric = ["share", "indexed"].includes(p.get("metric"))
-      ? p.get("metric")
-      : "count";
-  const pts = [];
-  for (const [year, journals] of Object.entries(stats.top5)) {
-    const cells = j ? [journals[j]] : Object.values(journals);
-    if (metric === "share" && cells.some((c) => c.total === null)) continue;
-    const total = cells.reduce(
-      (n, c) => n + (metric === "indexed" ? c.cataloguedTotal : c.total || 0),
-      0,
-    );
-    const count = cells.reduce(
-      (n, c) =>
-        n +
-        (metric === "share"
-          ? c.inToc
-          : metric === "indexed"
-            ? c.cataloguedHealth
-            : c.found),
-      0,
-    );
-    pts.push({
-      year,
-      total,
-      count,
-      value: metric !== "count" ? (100 * count) / total : count,
+const latestYear = () => stats.cutoff.slice(0, 4);
+const sourceTitles = {
+  top5: "经济学五大刊",
+  nber: "NBER 工作论文",
+  jhe: "Journal of Health Economics",
+};
+const sourceNames = { top5: "Top 5", nber: "NBER", jhe: "JHE" };
+
+function home(p) {
+  const venue = jnames.includes(p.get("venue")) ? p.get("venue") : "";
+  const scope = p.get("basis") === "issue" ? "issue" : "toc";
+  const points = topSeries(stats, venue, scope);
+  const years = new Set(points.map((v) => v.year));
+  const compare = p.get("nber") !== "off";
+  const lines = [{ name: (venue || "五大刊") + " · 健康研究", points }];
+  if (compare)
+    lines.push({
+      name: "NBER · 健康项目",
+      points: nberSeries(stats).filter((v) => years.has(v.year)),
     });
+  const year = latestYear();
+  return `<p class="definition">健康经济学研究生活条件如何影响健康，也研究谁能获得医疗、谁来支付费用。</p>
+    <div class="hero"><div class="copy"><p class="eyebrow">近期研究　/　NBER 工作论文</p><h1>街灯换了，<br>居民睡得更好吗？</h1><p>加拿大本拿比市陆续把老式街灯换成 LED 灯。研究者比较街区更换照明前后的变化，追踪居民的睡眠、心理健康和工作缺勤。</p><div class="actions">${btn("读这篇研究 ↗", "paper", { id: "10.3386/w36060" })}<span>2026 年 11 月</span></div></div><figure><img src="assets/streetlights.webp" alt="黑白版画插图，从卧室的窗户望向路灯照亮的住宅街道" width="1706" height="922" fetchpriority="high"></figure></div>
+    <section class="home-trend"><div><h2>健康研究占多少？</h2><p>五大刊按卷期发表年，NBER 按工作论文发布年。两条线各用本来源的年度论文总数作分母。</p><form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="basis" aria-label="期刊分母"><option value="toc">独立卷期 · 2010–2025</option><option value="issue" ${scope === "issue" ? "selected" : ""}>本站卷期 · 2003 年起</option></select><label><input type="checkbox" name="showNber" ${compare ? "checked" : ""}> 对照 NBER</label></form><small>数据截至 ${esc(stats.cutoff)}</small></div><div>${lineFigure(lines, true, "健康研究在各来源中的年度占比")}</div></section>
+    <section class="shelf"><h2>${year} 年的研究</h2><p class="meta">截至 ${esc(stats.cutoff)}，本年累计</p><div class="editions">${[
+      "top5",
+      "nber",
+      "jhe",
+    ]
+      .map((source, i) => {
+        const n =
+          source === "top5"
+            ? topSeries(stats, "", "trend").at(-1).count
+            : source === "nber"
+              ? stats.nber[year][0]
+              : stats.jhe[year];
+        return `<a href="${href(source, { year, series: source === "top5" ? "trend" : "" })}"><span>${["五大刊 · 卷期发表", "NBER · 健康项目", "JHE · 期刊收录"][i]}</span><strong>${n} <small>篇</small></strong><em>浏览论文 →</em></a>`;
+      })
+      .join("")}</div></section>`;
+}
+
+function channel(page, p) {
+  const top = page === "top5",
+    nber = page === "nber";
+  const venue = top && jnames.includes(p.get("venue")) ? p.get("venue") : "";
+  const year =
+    p.get("year") ||
+    (top && p.get("series") === "toc"
+      ? topSeries(stats, venue, "toc").at(-1).year
+      : latestYear());
+  const corpus = works.filter(
+    (w) =>
+      w.health &&
+      (top
+        ? jnames.includes(w.venue) && (w.trend || current.includes(w))
+        : w.venue === (nber ? "NBER" : jhe)),
+  );
+  const scope = top
+    ? ["toc", "issue"].includes(p.get("series"))
+      ? p.get("series")
+      : "trend"
+    : "";
+  const percent =
+    (top && scope !== "trend") || (nber && p.get("metric") !== "count");
+  const points = top
+    ? topSeries(stats, venue, scope)
+    : nber
+      ? nberSeries(stats)
+      : Object.entries(stats.jhe).map(([year, count]) => ({
+          year,
+          count,
+          link: href(page, { year, focus: "list" }),
+        }));
+  const lineName = top ? venue || "五刊合计" : sourceNames[page];
+  const yearPapers = corpus.filter((w) => w.year === year);
+  let side, breakdown;
+  if (top) {
+    side = "各刊收录篇数";
+    breakdown = jnames
+      .map((venue) => ({
+        label: venue,
+        value:
+          topSeries(stats, venue, scope).find((r) => r.year === year)?.count ??
+          null,
+        link: href(page, { year, venue, series: scope, focus: "list" }),
+      }))
+      .filter((r) => r.value != null);
+  } else if (nber) {
+    side = "各季发布篇数";
+    breakdown = Array.from({ length: 4 }, (_, i) => ({
+      label: "第 " + (i + 1) + " 季度",
+      value: yearPapers.filter((w) => quarter(w) === String(i + 1)).length,
+      link: href(page, { year, quarter: i + 1, focus: "list" }),
+    })).filter(
+      (r, i) =>
+        year !== latestYear() ||
+        i <= Math.floor((Number(stats.nberLatest.slice(5, 7)) - 1) / 3),
+    );
+  } else {
+    side = "各卷收录篇数";
+    const volumes = new Map();
+    for (const w of yearPapers)
+      volumes.set(w.volume || "", 1 + (volumes.get(w.volume || "") || 0));
+    breakdown = Array.from(volumes, ([volume, value]) => ({
+      label: volume ? "卷 " + volume : "卷号未载",
+      value,
+      link: href(page, { year, volume: volume || "unknown", focus: "list" }),
+    })).sort((a, b) => a.label.localeCompare(b.label, "zh", { numeric: true }));
   }
-  const now = current.filter((w) => !j || w.venue === j);
+  const intro = top
+    ? "查阅五大经济学期刊中的健康研究，比较不同期刊的发表数量与占比。"
+    : nber
+      ? "按首次发布年份，阅读 NBER 健康经济学项目的工作论文。"
+      : "浏览《健康经济学杂志》自 2003 年以来的论文，按年份或卷期查找研究。";
+  const controls = top
+    ? `<form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="series" aria-label="图表指标"><option value="trend">发表篇数</option><option value="toc" ${scope === "toc" ? "selected" : ""}>独立卷期占比</option><option value="issue" ${scope === "issue" ? "selected" : ""}>本站目录占比</option></select></form>`
+    : nber
+      ? `<form class="controls compact" data-auto><select name="metric" aria-label="图表指标"><option value="share">项目占比</option><option value="count" ${!percent ? "selected" : ""}>发布篇数</option></select></form>`
+      : "";
+  const caption = top
+    ? scope === "toc"
+      ? "分母为独立卷期目录中的研究论文，覆盖 2010–2025 年。"
+      : scope === "issue"
+        ? "分母为本站已收录的同刊卷期研究论文。"
+        : "按卷期计算，提前在线论文另列。"
+    : nber
+      ? "项目占比的分母为 NBER 同年全部普通工作论文。"
+      : "篇数按本站收录的 JHE 研究论文计算。";
   return (
-    titleblock(
-      "期刊观察",
-      "Top 5 趋势",
-      "回看五大经济学期刊中健康研究的发表情况。点击图上的年份，即可核对组成该点的论文。",
-    ) +
-    `<section class="box"><div class="row"><h2>${j || "五刊合计"} · ${metric === "share" ? "卷期占比" : metric === "indexed" ? "目录占比" : "发表篇数"}</h2><form class="controls">${select("venue", "五刊合计", jnames, j)}<select name="metric" aria-label="指标"><option value="count">篇数</option><option value="share" ${metric === "share" ? "selected" : ""}>卷期占比</option><option value="indexed" ${metric === "indexed" ? "selected" : ""}>目录占比</option></select><button>更新图表</button></form></div>${chart(pts, j, metric)}<details><summary>查看年度数字</summary><table><thead><tr><th>年份</th><th>健康研究</th>${metric !== "count" ? "<th>同口径总数</th><th>占比</th>" : ""}</tr></thead><tbody>${pts.map((point) => `<tr><td><a href="${esc(href("library", { year: point.year, venue: j, series: metric === "share" ? "toc" : metric === "indexed" ? "issue" : "trend" }))}">${point.year}</a></td><td>${point.count}</td>${metric !== "count" ? `<td>${point.total}</td><td>${point.value.toFixed(1)}%</td>` : ""}</tr>`).join("")}</tbody></table></details><p class="meta">${metric === "share" ? "2010–2025 · 占比＝同刊当年卷期内收录的健康研究 ÷ 该刊卷期研究论文总数。" : metric === "indexed" ? "2003–2026 · 分母为本站同刊当年有卷期的目录条目，已去除识别出的期务、会议论文与评论等。" : "2003–2026 · 按年展示本站收录的健康研究。会议论文、评论、讲座和提前在线稿单列。2026 年截至 11 月 24 日。"}</p></section>
-  <section><div class="row"><h2>2026 年至今</h2>${btn("浏览本年清单 →", "library", { period: "current", venue: j })}</div><p>截至 11 月 24 日，当前筛得 ${now.length} 篇。其中 ${now.filter((w) => w.set === "本年卷期").length} 篇归入本年卷期，其余为在线发表记录。题名可进入论文页。</p><div class="list">${now.map(paper).join("") || "暂无已核条目"}</div></section>`
+    titleblock(sourceNames[page], sourceTitles[page], intro) +
+    `<div class="overview"><section><h2>年度${percent ? "占比" : "篇数"}</h2>${controls}${lineFigure([{ name: lineName, points }], percent, lineName + "年度趋势")}<p class="meta">${caption} 本年截至 ${esc(nber ? stats.nberLatest : stats.cutoff)}。</p></section><section><span class="eyebrow">${esc(year)} 年</span><h2>${side}</h2>${breakdown.length ? bars(breakdown) : "<p>该年没有这一口径的卷期记录。</p>"}</section></div>` +
+    library(p, page, corpus)
   );
 }
-function library(p) {
-  const scope = p.get("scope") || "",
-    set = p.get("set") || "",
-    period = p.get("period") || "";
+function quarter(w) {
+  return w.date ? String(Math.ceil(Number(w.date.slice(5, 7)) / 3)) : "";
+}
+function library(p, page = "library", pool = works) {
+  const general = page === "library",
+    top = page === "top5",
+    nber = page === "nber";
   const year = p.get("year") || "",
     venue = p.get("venue") || "",
-    topic = p.get("topic") || "",
-    region = p.get("region") || "",
-    q = (p.get("q") || "").trim().toLowerCase();
-  const visible = works.filter(
+    volume = p.get("volume") || "";
+  const q = (p.get("q") || "").trim(),
+    sort = p.get("sort") || "recent",
+    series = p.get("series") || "";
+  const unique = (key, source = pool) =>
+    [...new Set(source.map((w) => w[key]).filter(Boolean))].sort((a, b) =>
+      String(a).localeCompare(String(b), "zh", { numeric: true }),
+    );
+  const available = pool.filter(
+    (w) => (!year || w.year === year) && (!venue || w.venue === venue),
+  );
+  const term = q.toLowerCase();
+  const visible = pool.filter(
     (w) =>
-      (scope === "all" || w.health) &&
-      (!set || w.set === set) &&
-      (!p.get("series") ||
-        (w.trend &&
-          (p.get("series") !== "toc" || w.inToc) &&
-          (p.get("series") !== "issue" || w.catalogueIssue))) &&
-      (!period || current.includes(w)) &&
-      (!year || w.year === year) &&
+      (p.get("scope") === "all" || w.health) &&
       (!venue || w.venue === venue) &&
-      (!topic || w.topic === topic) &&
-      (!region || w.region === region) &&
+      (!year || w.year === year) &&
+      (!series ||
+        (w.trend &&
+          (series !== "toc" || w.inToc) &&
+          (series !== "issue" || w.catalogueIssue))) &&
+      (!p.get("set") || w.set === p.get("set")) &&
+      (!p.get("period") || current.includes(w)) &&
+      (!p.get("quarter") || quarter(w) === p.get("quarter")) &&
+      (!volume || (volume === "unknown" ? !w.volume : w.volume === volume)) &&
+      (!p.get("issue") || w.issue === p.get("issue")) &&
+      (!p.get("topic") || w.topic === p.get("topic")) &&
       (!p.get("method") || w.methodMentions?.includes(p.get("method"))) &&
-      (!q || w.search.includes(q)),
+      (!p.get("region") || w.region === p.get("region")) &&
+      (!term || w.search.includes(term)),
+  );
+  const chronological = (a, b) =>
+    Number(a.year) - Number(b.year) ||
+    (a.date || "").localeCompare(b.date || "") ||
+    String(a.volume || "").localeCompare(String(b.volume || ""), "en", {
+      numeric: true,
+    }) ||
+    String(a.issue || "").localeCompare(String(b.issue || ""), "en", {
+      numeric: true,
+    });
+  visible.sort(
+    (a, b) =>
+      (sort === "title"
+        ? 0
+        : sort === "old"
+          ? chronological(a, b)
+          : chronological(b, a)) || a.title.localeCompare(b.title),
   );
   exportRows = visible;
-  const page = Math.max(
-      1,
-      Math.min(Math.ceil(visible.length / 24), parseInt(p.get("page")) || 1),
-    ),
-    pages = Math.max(1, Math.ceil(visible.length / 24));
-  const unique = (key) =>
-    [
-      ...new Set(
-        works
-          .filter((w) => w.health)
-          .map((w) => w[key])
-          .filter(Boolean),
-      ),
-    ].sort();
+  const pages = Math.max(1, Math.ceil(visible.length / 24)),
+    num = Math.max(1, Math.min(pages, parseInt(p.get("page")) || 1));
+  const fields = [
+    '<input type="search" name="q" aria-label="搜索论文" placeholder="搜索题名、作者或 DOI" value="' +
+      esc(q) +
+      '">',
+    general || top
+      ? select(
+          "venue",
+          top ? "五大刊合计" : "所有来源",
+          top ? jnames : unique("venue"),
+          venue,
+        )
+      : "",
+    select("year", "全部年份", unique("year").reverse(), year),
+    nber
+      ? select("quarter", "全部季度", ["1", "2", "3", "4"], p.get("quarter"))
+      : "",
+    !general && !nber
+      ? select(
+          "volume",
+          "全部卷",
+          unique("volume", available)
+            .reverse()
+            .concat(volume === "unknown" ? ["unknown"] : []),
+          volume,
+        )
+      : "",
+    !general && !nber && unique("issue", available).length
+      ? select(
+          "issue",
+          "全部期",
+          unique(
+            "issue",
+            available.filter((w) => !volume || w.volume === volume),
+          ),
+          p.get("issue"),
+        )
+      : "",
+    general ? select("topic", "全部主题", unique("topic"), p.get("topic")) : "",
+    general
+      ? select("region", "研究地点", unique("region"), p.get("region"))
+      : "",
+    general
+      ? select(
+          "method",
+          "摘要提及的方法",
+          [...new Set(pool.flatMap((w) => w.methodMentions || []))].sort(),
+          p.get("method"),
+        )
+      : "",
+    general
+      ? '<select name="scope" aria-label="目录范围"><option value="">健康研究目录</option><option value="all" ' +
+        (p.get("scope") === "all" ? "selected" : "") +
+        ">跨学科目录</option></select>"
+      : "",
+    '<select name="sort" aria-label="排列顺序"><option value="recent">由近及远</option><option value="old" ' +
+      (sort === "old" ? "selected" : "") +
+      '>由远及近</option><option value="title" ' +
+      (sort === "title" ? "selected" : "") +
+      ">按题名</option></select>",
+  ].join("");
+  const pg = (n, label) =>
+    btn(label, page, { ...Object.fromEntries(p), page: n, focus: "list" });
+  const context = [
+    p.get("set"),
+    p.get("period") ? "本年清单" : "",
+    series === "toc"
+      ? "独立卷期"
+      : series === "issue"
+        ? "本站卷期"
+        : series === "trend"
+          ? "卷期发表"
+          : "",
+  ]
+    .filter(Boolean)
+    .map(esc)
+    .join(" · ");
   return (
-    titleblock(
-      "文献索引",
-      "文献概览",
-      "按年份、期刊、主题或研究地点查找论文，展开条目即可阅读摘要。",
-    ) +
-    `<form class="controls"><input name="q" aria-label="题名、作者或 DOI" placeholder="题名、作者或 DOI" value="${esc(q)}">${select("venue", "所有期刊或系列", [...new Set([...jnames, "Journal of Health Economics", "Health Economics", "NBER", "arXiv", "SSRN", venue].filter(Boolean))], venue)}${select("year", "全部年份", [...new Set(works.map((w) => w.year).filter(Boolean))].sort().reverse(), year)}${select("topic", "全部主题", unique("topic"), topic)}${select("method", "摘要提及的方法", [...new Set(works.flatMap((w) => w.methodMentions || []))].sort(), p.get("method") || "")}${select("region", "国家或研究场景", unique("region"), region)}<select name="scope" aria-label="目录范围"><option value="">健康研究目录</option><option value="all" ${scope === "all" ? "selected" : ""}>跨学科目录</option></select><button>筛选</button><a href="#library">重置</a></form>
-  <div class="row"><p class="meta">${set ? esc(set) + " · " : ""}${period ? "本年清单 · " : ""}共 ${fmt(visible.length)} 条 · 按年份降序</p><button id="export">导出当前书目</button></div><div class="list">${
-    visible
-      .slice((page - 1) * 24, page * 24)
-      .map(paper)
-      .join("") || "没有匹配的文献。"
-  }</div><div class="paging">${page > 1 ? btn("上一页", "library", { ...Object.fromEntries(p), page: page - 1 }) : ""}${page} / ${pages}${page < pages ? btn("下一页", "library", { ...Object.fromEntries(p), page: page + 1 }) : ""}</div>`
-  );
-}
-function front() {
-  const entries = Object.entries(stats.nber).reverse();
-  const table = entries
-    .map(
-      ([y, [n, d]]) =>
-        `<tr><td><a href="${href("library", { venue: "NBER", year: y })}">${y}</a></td><td>${n}</td><td>${fmt(d)}</td><td>${((100 * n) / d).toFixed(1)}%</td></tr>`,
-    )
-    .join("");
-  return (
-    titleblock(
-      "研究前沿",
-      "工作论文",
-      "按首次公开年份，浏览进入期刊之前的健康经济学研究。",
-    ) +
-    `<section class="box"><div class="row"><h2>NBER · 卫生经济学项目</h2>${btn("浏览文献", "library", { venue: "NBER" })}</div><table><thead><tr><th>首次发布年</th><th>EH 项目</th><th>全部工作论文</th><th>项目占比</th></tr></thead><tbody>${table}</tbody></table><p class="meta">比例为 NBER 当年工作论文中归入 Economics of Health 的份额。同一篇论文可属于多个项目，此处只计一次。本年度统计至 ${esc(stats.nberLatest)}。</p></section>
-  <section class="box"><h2>arXiv · 跨学科预印本</h2><p>查看 arXiv 全站和经济学分类每年的预印本数量。经济学分类于 2017 年设立，早年记录按现有分类回溯。</p><table><thead><tr><th>公告年</th><th>全站记录</th><th>含经济学分类</th></tr></thead><tbody>${Object.entries(
-    frontier.years,
-  )
-    .map(
-      ([y, [all, econ]]) =>
-        `<tr><td>${y}</td><td>${fmt(all)}</td><td>${fmt(econ)}</td></tr>`,
-    )
-    .join(
-      "",
-    )}</tbody></table><p class="meta">按首次公告月份统计，截止 ${esc(frontier.lastMonth)}，可能为部分月份。</p>${btn("浏览健康研究", "library", { venue: "arXiv" })}</section>`
+    (general
+      ? titleblock(
+          "文献索引",
+          "文献概览",
+          "检索各来源的文献，展开题名下的摘要，或保存当前书目。",
+        )
+      : "") +
+    `<section id="papers"><div class="row"><h2>${general ? "检索文献" : "论文目录"}</h2>${top ? '<a href="' + href(page, { year: latestYear(), period: "current", focus: "list" }) + '">本年度论文（含提前在线） →</a>' : ""}</div><form class="controls filters" data-list>${fields}<button type="submit">查找</button><a href="#${page}">重置</a></form><div class="row"><p class="meta" role="status">${context ? context + " · " : ""}共 ${fmt(visible.length)} 篇</p><button class="text-action" id="export">导出书目 ↓</button></div><div class="list">${
+      visible
+        .slice((num - 1) * 24, num * 24)
+        .map((w) => paper(w))
+        .join("") ||
+      '<p class="empty">没有符合这些条件的论文。<a href="#' +
+        page +
+        '">清除筛选</a></p>'
+    }</div><div class="paging">${num > 1 ? pg(num - 1, "上一页") : ""}${num} / ${pages}${num < pages ? pg(num + 1, "下一页") : ""}</div></section>`
   );
 }
 function atlas() {
@@ -335,40 +440,68 @@ function about() {
     ) +
     `<section class="box"><h2>五大刊与专业期刊</h2><p>篇数按同刊同年已收录的健康研究计算。目录占比采用本站有卷期的同刊条目，2010–2025 年另可对照独立卷期目录计算研究论文占比。专业期刊和工作论文可在文献概览中单独浏览。</p><a href="https://github.com/kochiuyu/econ-journal-authors">卷期核对数据 ↗</a> · <a href="https://openalex.org/">OpenAlex ↗</a></section>
   <section class="box"><h2>工作论文与时间</h2><p>NBER 以首次发布日期计年。2023 年两个卫生研究项目合并，历史数据按现有项目归属回溯。arXiv 用原始公告编号计月。首次公开是可观测时间，实际构思可能更早。不同系列和发表版本分别保留。</p><a href="https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata">NBER 原始数据 ↗</a> · <a href="https://www.nber.org/programs-projects/programs-working-groups/economics-health">NBER 项目沿革 ↗</a> · <a href="https://huggingface.co/datasets/librarian-bots/arxiv-metadata-snapshot">arXiv 元数据镜像 ↗</a></section>
-  <section class="box"><h2>阅读全文</h2><p>有开放版本的论文提供 arXiv 或 OpenAlex 登记的全文入口；期刊页面可能另有机构访问要求。个人收藏的 PDF 可在本地打开。</p><a class="btn" href="reader.html">打开本机全文阅读器</a></section><p class="meta">首页插图为 Mary Cassatt 的 The Child’s Bath（1893），取自 <a href="https://www.artic.edu/artworks/111442/the-child-s-bath">芝加哥艺术博物馆公共领域馆藏</a>。</p>`
+  <section class="box"><h2>阅读全文</h2><p>有开放版本的论文提供 arXiv 或 OpenAlex 登记的全文入口；期刊页面可能另有机构访问要求。个人收藏的 PDF 可在本地打开。</p><a class="btn" href="reader.html">打开本机全文阅读器</a></section><p class="meta">首页街灯版画为配合本期论文制作的 AI 生成插图。</p>`
   );
 }
 let exportRows = [];
 function render() {
   const [route, query] = location.hash.slice(1).split("?"),
-    page = route || "home",
+    page = canonical(route),
     p = new URLSearchParams(query);
+  if (route === "trends" && !p.has("series"))
+    p.set(
+      "series",
+      { share: "toc", indexed: "issue" }[p.get("metric")] || "trend",
+    );
   const pages = {
     home,
-    trends,
+    top5: (p) => channel("top5", p),
+    nber: (p) => channel("nber", p),
+    jhe: (p) => channel("jhe", p),
     library,
     paper: paperPage,
-    frontier: front,
     atlas,
     about,
   };
   el.innerHTML = (pages[page] || home)(p);
   document.querySelectorAll("nav a").forEach((a) => {
-    if (a.hash === "#" + page) a.setAttribute("aria-current", "page");
+    if (a.hash === "#" + (page === "paper" ? "library" : page))
+      a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   });
   for (const node of el.querySelectorAll(".paper-detail")) {
     node.addEventListener("toggle", () => readDetail(node));
     if (node.open) readDetail(node);
   }
-  const form = el.querySelector("form");
-  if (form)
+  for (const form of el.querySelectorAll("form")) {
+    const apply = () => {
+      const next = new URLSearchParams(p);
+      next.delete("page");
+      next.delete("focus");
+      for (const [key, value] of new FormData(form))
+        value ? next.set(key, value) : next.delete(key);
+      if (form.elements.showNber) {
+        next.delete("showNber");
+        if (form.elements.showNber.checked) next.delete("nber");
+        else next.set("nber", "off");
+      }
+      if (form.hasAttribute("data-list")) next.set("focus", "list");
+      location.hash = href(page, Object.fromEntries(next));
+    };
     form.onsubmit = (e) => {
       e.preventDefault();
-      p.delete("page");
-      for (const [k, v] of new FormData(form)) v ? p.set(k, v) : p.delete(k);
-      location.hash = href(page, Object.fromEntries(p));
+      apply();
     };
+    if (form.hasAttribute("data-auto")) form.onchange = apply;
+    if (form.hasAttribute("data-list"))
+      form.addEventListener("change", (e) => {
+        if (e.target.matches('[name="year"],[name="venue"],[name="volume"]')) {
+          if (e.target.name !== "volume" && form.elements.volume)
+            form.elements.volume.value = "";
+          if (form.elements.issue) form.elements.issue.value = "";
+        }
+      });
+  }
   const ex = el.querySelector("#export");
   if (ex)
     ex.onclick = () => {
@@ -399,7 +532,7 @@ async function get(file) {
   if (!r.ok) throw Error(file);
   return r.json();
 }
-let catalogRequest, statsRequest, frontierRequest;
+let catalogRequest, statsRequest;
 function loadCatalog() {
   return (catalogRequest ||= Promise.all(
     ["papers-index", "open-copies"].map(get),
@@ -444,30 +577,43 @@ function loadStats() {
       throw error;
     }));
 }
-function loadPreprints() {
-  return (frontierRequest ||= get("arxiv")
-    .then((rows) => {
-      frontier = rows;
-    })
-    .catch((error) => {
-      frontierRequest = undefined;
-      throw error;
-    }));
+function canonical(route) {
+  return { trends: "top5", frontier: "nber" }[route] || route || "home";
 }
 let navigation = 0;
 async function navigate() {
   const ticket = ++navigation,
     route = location.hash.slice(1).split("?")[0] || "home";
   const needs = [];
-  if (["trends", "library", "paper"].includes(route)) needs.push(loadCatalog());
-  if (["trends", "atlas", "frontier"].includes(route)) needs.push(loadStats());
-  if (route === "frontier") needs.push(loadPreprints());
+  if (["top5", "nber", "jhe", "library", "paper"].includes(route))
+    needs.push(loadCatalog());
+  if (["home", "top5", "nber", "jhe", "atlas"].includes(route))
+    needs.push(loadStats());
+  if (
+    ![
+      "home",
+      "top5",
+      "nber",
+      "jhe",
+      "library",
+      "paper",
+      "atlas",
+      "about",
+    ].includes(route)
+  )
+    needs.push(loadStats());
   if (needs.length) el.textContent = "正在读取…";
   try {
     await Promise.all(needs);
     if (ticket !== navigation) return;
     render();
-    window.scrollTo(0, 0);
+    menu.setAttribute("aria-expanded", "false");
+    document.querySelector("#main-nav").classList.remove("open");
+    if (
+      new URLSearchParams(location.hash.split("?")[1]).get("focus") === "list"
+    )
+      document.querySelector("#papers")?.scrollIntoView();
+    else window.scrollTo(0, 0);
   } catch (error) {
     if (ticket !== navigation) return;
     el.replaceChildren(document.createTextNode("页面数据暂时无法载入。 "));
@@ -477,5 +623,45 @@ async function navigate() {
     el.append(button);
   }
 }
+const menu = document.querySelector(".menu-toggle");
+menu.addEventListener("click", () => {
+  const open = document.querySelector("#main-nav").classList.toggle("open");
+  menu.setAttribute("aria-expanded", String(open));
+});
+const clock = document.querySelector("#clock-time");
+const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+const clockFormat = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+const calendar = new Intl.DateTimeFormat("zh-CN", {
+  month: "numeric",
+  day: "numeric",
+  weekday: "short",
+});
+function tick() {
+  const now = new Date();
+  clock.dateTime = now.toISOString();
+  clock.textContent = clockFormat.format(now);
+  document.querySelector("#clock-zone").textContent =
+    calendar.format(now) + " · 当地";
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1,
+  );
+  const elapsed = (now - midnight) / (tomorrow - midnight);
+  clock.parentElement.style.setProperty(
+    "--elapsed",
+    (elapsed * 100).toFixed(2) + "%",
+  );
+  clock.parentElement.title =
+    zone + " · 今天已过 " + Math.floor(elapsed * 100) + "%";
+}
+tick();
+setInterval(tick, 1000);
 window.addEventListener("hashchange", navigate);
 navigate();

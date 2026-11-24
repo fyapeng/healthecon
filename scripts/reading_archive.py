@@ -493,6 +493,8 @@ def build(args):
 
     groups = defaultdict(dict)
     index = []
+    issue_file = raw / "JHE卷期" / "0167-6296.json"
+    jhe_issues = load(issue_file) if issue_file.exists() else {}
     years = {
         str(y): {
             j: {
@@ -509,8 +511,15 @@ def build(args):
     for key, w in sorted(papers.items()):
         t = plain(w["title"]).casefold().strip(" .:")
         if w["venue"] in SPECIAL:
+            # Truncated or machine-translated secondary records of indexed JHE articles.
+            if key in {
+                "https://openalex.org/W2945701817",
+                "https://openalex.org/W3191583633",
+                "https://openalex.org/W3209241743",
+            }:
+                continue
             is_notice = re.search(
-                r"annual kenneth j\.? arrow award|european workshop on econometrics and health economics|^ihea student competition|call for proposals:|^book reviews?$",
+                r"annual kenneth j\.? arrow award|european workshop on econometrics and health economics|^ihea student competition|call for proposals:|^book reviews?$|^publisher['’]s note$",
                 t,
             )
             is_book = re.search(
@@ -518,7 +527,7 @@ def build(args):
                 t,
             )
             is_exchange = re.search(
-                r"^(?:comments? (?:on|to)|reply to|response to) |[:;] (?:a |an )?(?:reply|response|rejoinder) to ",
+                r"^(?:comments? (?:on|to)|reply to|response to) |^comment[—–]|[:;] (?:a |an )?(?:reply|response|rejoinder) to ",
                 t,
             )
             if is_notice or is_book or is_exchange:
@@ -550,6 +559,15 @@ def build(args):
         if w.get("aliasOf") or w["year"] < START or w["year"] > args.cutoff[:4]:
             continue
         detail = details[key]
+        if w["venue"] == "Journal of Health Economics" and key in jhe_issues:
+            volume, issue = jhe_issues[key]
+            w["volume"] = volume
+            if issue:
+                w["issue"] = issue
+        if w["venue"] in JOURNALS and w["health"]:
+            for field in ("volume", "issue"):
+                if detail.get(field):
+                    w[field] = detail[field]
         if (
             w.get("catalogueIssue")
             and not w.get("articleType")
@@ -598,6 +616,11 @@ def build(args):
             "top5": years,
             "nber": nber,
             "nberLatest": nber_latest,
+            "jhe": {
+                year: sum(w["venue"] == "Journal of Health Economics" and w["year"] == year
+                          for w in index)
+                for year in years
+            },
             "topics": Counter(
                 w["topic"] for w in index if w.get("health") and w.get("topic")
             ),
