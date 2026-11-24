@@ -376,3 +376,17 @@ th {
 .cards h3:first-child {
   margin-top: 0;
 }
+.paper-detail {
+  margin: 0.65rem 0;
+}
+summary {
+  cursor: pointer;
+  color: #315641;
+}
+.abstract-body {
+  margin-top: 0.8rem;
+}
+.abstract-body p {
+  line-height: 1.72;
+  overflow-wrap: anywhere;
+}

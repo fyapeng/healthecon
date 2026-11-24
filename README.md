@@ -1,26 +1,23 @@
 # healthecon
 
-[打开健康经济学研究观察](https://fyapeng.com/healthecon/)
+[访问健康经济学研究观察](https://fyapeng.com/healthecon/) · [前端数据说明](docs/reading-data.md) · [前端设计委托](docs/gemini-design-brief.md)
 
-healthecon 记录经济学家如何研究健康、医疗服务和保险。首页面向初次接触这个领域的读者。五大刊趋势、工作论文和研究主题均可进入同一个可筛选、可导出的文献目录。项目公开的是书目、分类判断和统计依据。
+中文公共文献站。收录健康经济学研究，展示五大经济学期刊的年度变化、专业期刊文章和工作论文。读者可以从图表进入对应论文，按年、期刊、主题、研究地点筛选，展开原文摘要、已有中文译文，或访问开放版本。
 
-## 数据与口径
+## 当前快照
 
-- 五大刊的 2020–2024 年曲线以历史人工清单为分子，按 DOI 和卷期核对。分母按同刊同年目录中标记为研究论文的记录计算。年度合计使用分子之和除以分母之和。历史清单包含与健康相关的理论应用，仍可有漏收或误收。2025 年尚待核读。
-- 2026 年清单来自五刊的 Crossref 卷期和在线发表记录，截止 11 月 24 日。以 DOI 去重，分别标明本年卷期和本年在线。每篇附中文研究问题。最新清单按当前核读结果展示，不能视作全年发表量。
-- 专业期刊纳入 Journal of Health Economics 和 Health Economics。书目由 OpenAlex 提供。国家指研究场景，理论研究和跨国研究可有独立标注。主题和国家筛选只覆盖已有标注的条目。
-- NBER 用官方普通工作论文 w 编号和首次发布日期计年。分子取目前归入 Economics of Health（EH）的工作论文，分母取同年所有普通工作论文。两个前身项目于 2023 年 7 月合并。截止时间以批量目录中的最新日期为准。[NBER 书目](https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata) · [项目沿革](https://www.nber.org/programs-projects/programs-working-groups/economics-health)
-- arXiv 按标识中的首次公告月份统计快照所载全站记录及挂有 econ.* 标签的记录，跨栏论文只计一次。表中末月可能不完整。逐篇标注的健康研究可单独浏览。全站健康经济学分子尚待系统核读。[冻结的元数据镜像](https://huggingface.co/datasets/librarian-bots/arxiv-metadata-snapshot/tree/c428226b689a0e17db2cd55265133b9eca15d97f)
-- 论文链接指向 DOI、NBER 或 arXiv。部分条目有 OpenAlex 登记的开放全文位置，开放版本可能为作者手稿。个人 PDF 由浏览器在本机打开。私人收藏和获取权限由研究者管理。
+目录按 2003–2026 年组织，2026 年截至 11 月 24 日。索引包括跨学科文献，默认的健康研究目录只是其中一部分。独立卷期核对覆盖 2010–2025 年。五刊长期目录、NBER 项目和 arXiv 分类各自使用不同的分子、分母和时间定义。各年的分子、分母与核心字段见公开数据说明。
 
-## 本地预览与更新
+## 本地运行
 
-仓库附带前端所需的书目快照。在根目录运行 `python -m http.server 8000`，打开 `http://localhost:8000`。GitHub Pages 从 main 分支根目录发布。
+仓库提供完整的静态展示数据。在根目录运行 `python -m http.server 8000` 并打开 http://localhost:8000。GitHub Pages 从 main 分支根目录发布。摘要按年份加载。个人 PDF 在本机读取，仓库不保存 PDF 和私人笔记。
 
-`scripts/import_catalog.py` 从本地书目导出导入元数据，`scripts/document_types.py` 处理期务、勘误及其他待核条目，理由保存在 `data/document_audit.json`。`data/toc_special.tsv` 和五刊分母使用 [Econ Journal Authors 卷期目录](https://github.com/kochiuyu/econ-journal-authors/tree/c54c997888859067223103b659f4ee98d059b71b/releases/articles_toc_2010_2025)，原项目以 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 发布。本站对数据作筛选和聚合。
+## 重建数据
 
-`data/baseline-curation.txt` 和 `data/current-curation.txt` 保存可修订的分类。`scripts/current_year.py <卷期缓存目录>` 下载本年候选，`scripts/observatory.py <本地书目项目根目录>` 读取卷期目录、NBER 批量表和分类文件，更新图表。新快照须同步修改截止日和缓存路径。`scripts/open_copies.py <缓存目录>` 补充开放全文位置，可从环境读取 OPENALEX_API_KEY。
+采集输入与缓存保存在站外。先用 `scripts/import_catalog.py` 导入书目 CSV，用 `scripts/current_year.py` 和 `scripts/observatory.py` 生成本年卷期和原始五年对照。前端发布索引由 `scripts/reading_archive.py` 从上述底稿重建。其四个位置参数依次为本地书目项目根目录、Top5 Papers 的 src/data、NBER Weekly 的 src/data 和 SenLab 对外发布的 site/src/data。使用 `--cutoff 2026-11-24` 重现本次快照。更换截止日时同时更新本年卷期与来源快照。
 
-arXiv 的三个脚本按 `arxiv_snapshot.py`、`arxiv_econ.py`、`arxiv_public.py` 顺序运行，均接收同一个本地缓存目录，依赖 DuckDB。快照版本固定，更新时使用新的缓存目录。
-
-首页插图选自芝加哥艺术博物馆公共领域馆藏，Mary Cassatt，《孩子的沐浴》，1893 年。[作品资料](https://www.artic.edu/artworks/111442/the-child-s-bath)
+- arXiv 使用同一固定元数据镜像。对同一缓存目录依次运行 arxiv_snapshot.py、arxiv_econ.py、arxiv_history.py 和 arxiv_public.py，以早期 archive/YYMMNNN 及后期 YYMM.NNNNN 标识还原首次公告月份。
+- europe_pmc.py 和 specialist_catalog.py 按 ISSN 分别取得摘要和专业期刊卷期记录，接收缓存目录与 --cutoff。书目补全保留原文来源。首次生成公开索引后，可运行 abstract_gaps.py 以仍缺摘要的 DOI 跨刊补查，运行 crossref_abstracts.py 按刊比对出版社提交的摘要，再生成索引。
+- 专业期刊卷期、欧洲PMC、跨刊摘要、出版社摘要等缓存目录位于本地书目项目的“采集”目录下。研究型论文与期务/待核记录的原始处理见 document_types.py、data/document_audit.json。archive-curation.json 存放增补选录与主题；最终分组、版本关系和去重理由见 reading_archive.py。
+- open_copies.py 从 OpenAlex 补充开放版本位置。部分条目只有出版社链接。
+- [Econ Journal Authors 的冻结卷期目录](https://github.com/kochiuyu/econ-journal-authors/tree/c54c997888859067223103b659f4ee98d059b71b/releases/articles_toc_2010_2025)采用 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。本站按刊年选取记录，校正会议期标记并汇总。首页图像为 Mary Cassatt 1893 年作品《孩子的沐浴》，来自[芝加哥艺术博物馆公共领域馆藏](https://www.artic.edu/artworks/111442/the-child-s-bath)。
