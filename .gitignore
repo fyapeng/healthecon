@@ -1,0 +1,5 @@
+# Local research material
+*.pdf
+.env*
+__pycache__/
+private/
