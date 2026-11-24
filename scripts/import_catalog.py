@@ -1,4 +1,5 @@
 """Build the public bibliographic snapshot from the review project's CSV exports."""
+from document_types import disposition
 import argparse
 import csv
 import json
@@ -48,12 +49,21 @@ def build(source, cutoff):
                 work["sources"].append(label)
             if row.get("Abstract", "").strip():
                 work["abstractAvailable"] = True
+    with (ROOT / "data/toc_special.tsv").open(encoding="utf8") as f:
+        toc = {r["doi"]:r["type"] for r in csv.DictReader(f, delimiter="\t")}
+    withheld = {}
+    for key, work in works.items():
+        reason = disposition(work, toc)
+        if reason:
+            withheld[key] = {"id":key,"title":work["title"],"sources":work["sources"],"reason":reason}
     notes = {}
     order = []
     for row in records(source / "全量阅读顺序.csv"):
         key = identifier(row)
         if key not in works:
             raise ValueError(key)
+        if key in withheld:
+            continue
         order.append(key)
         note = row["AbstractReview"].strip()
         if note and note != "待核读":
@@ -61,7 +71,8 @@ def build(source, cutoff):
     if len(set(order)) != len(order):
         raise ValueError("Duplicate ranking IDs")
     # Unranked records, e.g. missing titles, are still available in the library.
-    library = sorted(works.values(), key=lambda w: w["id"])
+    library = sorted((w for k,w in works.items() if k not in withheld), key=lambda w: w["id"])
+    write(ROOT / "data/document_audit.json", list(withheld.values()))
     write(ROOT / "data/catalog.json", library)
     write(ROOT / "data/coverage.json", {"cutoff": cutoff, "counts": counts})
     write(ROOT / "topics/patient-choice.json", {
@@ -76,3 +87,4 @@ if __name__ == "__main__":
     parser.add_argument("--cutoff", required=True, help="Snapshot cutoff (YYYY-MM-DD)")
     args = parser.parse_args()
     build(args.source, args.cutoff)
+

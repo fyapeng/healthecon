@@ -28,3 +28,9 @@ python -m http.server 8000
 ## 数据来源
 
 [Crossref](https://www.crossref.org/) · [OpenAlex](https://openalex.org/) · [RePEc](https://ideas.repec.org/) · [NBER 批量书目](https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata)
+
+## 文献类型核查
+
+公开目录先排除可确认的期务事项。资料不全、勘误、会议论文及卷期标记有疑义的记录进入待核清单。原始来源计数仍表示进入核查前的条数。当前公开目录包含专业期刊、工作论文和引文线索，不能直接用作五刊研究论文的分母。[逐条核查记录](data/document_audit.json)
+
+卷期标记文件 data/toc_special.tsv 摘取自 [Econ Journal Authors](https://github.com/kochiuyu/econ-journal-authors/tree/c54c997888859067223103b659f4ee98d059b71b/releases/articles_toc_2010_2025) 的 2010–2025 年冻结版，按 DOI 选取五大刊及两份卫生经济学期刊的 other、proceedings 标记。原项目按 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 发布。分类来自该项目，本站将其用于辅助复核。
