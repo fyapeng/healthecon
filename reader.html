@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; frame-src blob:; connect-src 'none'; form-action 'none'; base-uri 'none'"
+    />
+    <title>本机全文阅读 · healthecon</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <a href="index.html#library">← 文献概览</a>
+      <section>
+        <h1>本机全文阅读</h1>
+        <p>
+          选择自己保存的
+          PDF，可同时选择多篇。文件仅在当前浏览器打开，关闭页面后释放。
+        </p>
+        <label
+          >选择论文
+          <input
+            id="files"
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple /></label
+        ><select id="docs" hidden aria-label="切换论文"></select>
+        <p id="msg" role="status"></p>
+        <iframe title="PDF 正文" class="reader" hidden></iframe>
+      </section>
+    </main>
+    <script src="reader.js"></script>
+  </body>
+</html>
