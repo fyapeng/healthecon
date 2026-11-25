@@ -24,3 +24,5 @@
 
 本地采集 JHE 的卷期字段可运行 `scripts/jhe_issues.py <书目项目>/采集/JHE卷期/0167-6296.json`，再重建索引。卷期号来自 Crossref 出版者记录，年份沿用已核对的本站目录。
 HE 的卷期缓存使用相同命令，指定 `--issn 1057-9230`，文件名为 `1057-9230.json`。人工补译保存在 `data/editorial-translations.json`。批量译文随索引和各年摘要一起发布，保留原始题名和摘要供读者对照。
+
+首页雨夜照片按展示构图提供三档 WebP 尺寸，图注链接到完整馆藏照片。界面拉丁字符使用本地托管的 [Source Sans 3](https://github.com/adobe-fonts/source-sans)，拉丁子集由 [Fontsource](https://fontsource.org/fonts/source-sans-3) 分发，授权见 [OFL](assets/fonts/OFL.txt)。

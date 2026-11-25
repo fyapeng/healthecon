@@ -16,9 +16,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("cache", type=Path)
+    parser.add_argument("--catalog", type=Path, help="Upstream bibliography catalog.json")
     args = parser.parse_args()
     args.cache.mkdir(parents=True, exist_ok=True)
-    records = json.loads((ROOT / "data/catalog.json").read_text(encoding="utf-8"))
+    catalog = args.catalog or args.cache.resolve().parents[1] / "书目" / "catalog.json"
+    records = json.loads(catalog.read_text(encoding="utf-8"))
     curated = json.loads((ROOT / "data/observatory.json").read_text(encoding="utf-8"))["labels"]
     dois = sorted(set(curated) | {w["id"] for w in records if w["venue"] == "Journal of Health Economics" and w["id"].startswith("10.")})
     session = requests.Session()

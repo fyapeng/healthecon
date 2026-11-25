@@ -15,6 +15,8 @@ from pathlib import Path
 
 import requests
 
+from channel_indexes import write_channels
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 ZH = re.compile(r"[\u3400-\u9fff]")
@@ -196,6 +198,7 @@ def run(args):
                 detail["abstractZh"] = clean_translation(detail["abstractZh"])
         save(DATA / "details" / (y + ".json"), rows)
     save(DATA / "papers-index.json", index)
+    write_channels(DATA, index)
     stats = load(DATA / "archive-stats.json")
     stats["summary"]["translated"] = sum(bool(w.get("hasAbstractZh")) for w in index)
     save(DATA / "archive-stats.json", stats)

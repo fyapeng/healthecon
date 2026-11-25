@@ -73,7 +73,7 @@ def build(source, cutoff):
     # Unranked records, e.g. missing titles, are still available in the library.
     library = sorted((w for k,w in works.items() if k not in withheld), key=lambda w: w["id"])
     write(ROOT / "data/document_audit.json", list(withheld.values()))
-    write(ROOT / "data/catalog.json", library)
+    write(source / "catalog.json", library)
     write(ROOT / "data/coverage.json", {"cutoff": cutoff, "counts": counts})
     write(ROOT / "topics/patient-choice.json", {
         "notes": notes, "order": order,

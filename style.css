@@ -1,3 +1,10 @@
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("assets/fonts/source-sans-3-latin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+}
 :root {
   --bg: #faf7f1;
   --ink: #211e1a;
@@ -70,7 +77,6 @@ input[type="checkbox"] {
 .row,
 .actions,
 .controls,
-.legend,
 .paging {
   display: flex;
   align-items: center;
@@ -328,21 +334,6 @@ small {
   stroke: currentColor;
   stroke-width: 4;
 }
-.legend {
-  font: 13px var(--sans);
-  gap: 20px;
-}
-.key:before {
-  content: "";
-  display: inline-block;
-  vertical-align: middle;
-  width: 25px;
-  border-top: 2px solid var(--accent);
-  margin-right: 7px;
-}
-.key-1:before {
-  border-top: 2px dashed #323b40;
-}
 .numbers {
   margin: 8px 0;
   color: var(--muted);
@@ -412,7 +403,8 @@ td {
 }
 .editions strong {
   display: block;
-  font: 44px var(--serif);
+  font: 500 clamp(42px, 4.1vw, 62px)/1.08 var(--serif);
+  letter-spacing: -.035em;
   margin: 7px 0;
 }
 .editions em,
@@ -783,3 +775,76 @@ summary {
   margin-top: 2rem;
 }
 .paper-actions a { overflow-wrap: anywhere; }
+
+.chart text, .editions strong, .year-values, .inspect-year, .numbers, .bars b, .clock time, .paging {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.chart .end-label { color: var(--accent); pointer-events: none; }
+.chart .end-label.s1 { color: #323b40; }
+.chart .end-label text { fill: currentColor; font-weight: 600; }
+.end-label path { fill: none; stroke: currentColor; stroke-width: 1; }
+.end-label.s1 path { stroke-dasharray: 3 2; }
+.year-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+}
+.reading-page {
+  max-width: 864px;
+  margin: clamp(22px, 4vw, 56px) auto 4rem;
+}
+.reading-back { font-size: 14px; color: var(--muted); }
+.reading-page .paper {
+  border-top: 1px solid var(--line);
+  padding-top: clamp(18px, 3vw, 34px);
+}
+.reading-page h1 {
+  margin: .45em 0 .3em;
+  font-size: clamp(26px, 3vw, 43px);
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+}
+.reading-page .paper > p[lang=en] {
+  font: clamp(17px, 1.65vw, 23px)/1.48 Georgia, serif;
+  color: var(--muted);
+  max-width: none;
+}
+.reading-page .paper-detail, .reading-page .paper-actions {
+  max-width: 744px;
+  margin-inline: auto;
+}
+.reading-page .paper-detail {
+  margin-top: 1.65rem;
+  border-top: 1px solid var(--line);
+  padding-top: .75rem;
+}
+.reading-page .abstract-body p {
+  max-width: 100%;
+  margin: .45em 0 1.3em;
+  line-height: 1.85;
+}
+.reading-page .abstract-body p[lang=en] { line-height: 1.65; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.loading-page { padding-block: 1.5rem; }
+.loading-block { padding: 25px 0; border-top: 1px solid var(--line); }
+.loading-block i {
+  display: block;
+  width: min(76%, 680px);
+  height: .8rem;
+  margin-block: 1rem;
+  background: #e9e3d9;
+}
+.loading-block i:first-child { height: 1.6rem; width: min(55%, 480px); }
+.loading-block i:last-child { width: min(44%, 340px); }
+@media (max-width: 720px) {
+  .top { grid-template-columns: minmax(0, 1fr) auto; }
+  .top .clock { display: none; }
+}

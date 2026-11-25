@@ -8,14 +8,15 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=20261124-bilingual4";
+} from "./figures.js?v=20261125-edition";
 const el = document.querySelector("#app");
 const fmt = (n) => Number(n).toLocaleString("zh-CN");
 const btn = (title, page, params = {}) =>
   `<a class="btn" href="${esc(href(page, params))}">${esc(title)}</a>`;
 const detailCache = new Map();
 let stats, byId;
-let works, current;
+let works;
+const isCurrent = w => w.set === "本年卷期" || w.set === "本年在线";
 const options = (arr, v) =>
   arr
     .map(
@@ -35,11 +36,11 @@ function abstractSource(source) {
   return names[source.split(" · ")[1]] || "Top5 Papers";
 }
 function paper(w, expanded = false) {
-  const internal = href("paper", { id: w.id });
+  const internal = href("paper", { id: w.id, group: paperGroup(w) });
   const url = w.id.startsWith("10.") ? "https://doi.org/" + w.id : w.id;
   const safe = /^https:\/\/(doi\.org|openalex\.org|arxiv\.org)\//i.test(url);
   const identifier = w.id.startsWith("10.") ? "DOI · " + w.id : "书目标识";
-  return `<article class="paper"><div class="meta">${esc(w.date || w.year)} · ${esc(w.venue)}${w.volume ? " · 卷 " + esc(w.volume) : ""}${w.issue ? " · 第 " + esc(w.issue) + " 期" : ""}${w.set === "本年在线" ? " · 提前在线" : ""}${w.articleType ? " · " + esc(w.articleType) : ""}</div><h3><a href="${esc(internal)}">${esc(w.titleZh || w.title)}</a></h3>${w.titleZh ? `<p lang="en">${esc(w.title)}</p>` : ""}${w.question ? `<p>${esc(w.question)}</p>` : ""}<div class="meta">${esc((w.authors || "").replaceAll(" | ", ", "))}</div>${[
+  return `<article class="paper"><div class="meta">${esc(w.date || w.year)} · ${esc(w.venue)}${w.volume ? " · 卷 " + esc(w.volume) : ""}${w.issue ? " · 第 " + esc(w.issue) + " 期" : ""}${w.set === "本年在线" ? " · 提前在线" : ""}${w.articleType ? " · " + esc(w.articleType) : ""}</div><${expanded ? "h1" : "h3"}>${expanded ? esc(w.titleZh || w.title) : `<a href="${esc(internal)}">${esc(w.titleZh || w.title)}</a>`}</${expanded ? "h1" : "h3"}>${w.titleZh ? `<p lang="en">${esc(w.title)}</p>` : ""}${w.question ? `<p>${esc(w.question)}</p>` : ""}<div class="meta">${esc((w.authors || "").replaceAll(" | ", ", "))}</div>${[
     w.topic,
     w.region,
   ]
@@ -52,7 +53,7 @@ function paper(w, expanded = false) {
 function paperPage(p) {
   const w = byId.get(p.get("id"));
   return w
-    ? `<p><a href="#library">文献概览</a></p>${paper(w, true)}`
+    ? `<div class="reading-page"><p class="reading-back"><a href="#library">← 文献概览</a></p>${paper(w, true)}</div>`
     : '<p>没有找到这篇论文。<a href="#library">浏览文献</a></p>';
 }
 async function readDetail(node) {
@@ -135,13 +136,16 @@ function homeFinding(venue, scope, compare) {
     statements.push(`同年，NBER 每发表 100 篇工作论文，约有 ${Math.round(100 * nber[0] / nber[1])} 篇属于健康研究项目。`);
   return statements.join("");
 }
+function homeFeature() {
+  return `<p class="definition"><strong>用经济学理解健康与医疗中的取舍。</strong></p>
+    <div class="hero"><div class="copy"><p class="eyebrow">近期研究　/　NBER 工作论文</p><h1>街灯换了，<br>居民睡得更好吗？</h1><p>加拿大本拿比市陆续把老式街灯换成 LED 灯。研究者比较街区更换照明前后的变化，追踪居民的睡眠、心理健康和工作缺勤。</p><div class="actions">${btn("看研究摘要 →", "paper", { id: "10.3386/w36060" })}<span>2026 年 11 月</span></div></div><figure class="cover-print"><a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york" aria-label="查看馆藏完整照片"><img src="assets/fraser-wet-night-760.webp" srcset="assets/fraser-wet-night-480.webp 480w, assets/fraser-wet-night-760.webp 760w, assets/fraser-wet-night-1000.webp 1000w" sizes="(max-width: 650px) 91vw, (max-width: 850px) calc(54vw - 12px), (max-width: 1494px) 51.65vw, 775px" alt="纽约哥伦布圆环雨夜，树影之间的街灯倒映在湿漉漉的路面上" width="1000" height="535" fetchpriority="high"></a><figcaption>纽约哥伦布圆环的雨夜，1899 · William A. Fraser 摄影（局部） <a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york">美国国家美术馆 ↗</a></figcaption></figure></div>`;
+}
 function home(p) {
   const venue = jnames.includes(p.get("venue")) ? p.get("venue") : "";
   const scope = p.get("basis") === "issue" ? "issue" : "toc";
   const compare = p.get("nber") !== "off";
   const year = latestYear();
-  return `<p class="definition"><strong>用经济学理解健康与医疗中的取舍。</strong></p>
-    <div class="hero"><div class="copy"><p class="eyebrow">近期研究　/　NBER 工作论文</p><h1>街灯换了，<br>居民睡得更好吗？</h1><p>加拿大本拿比市陆续把老式街灯换成 LED 灯。研究者比较街区更换照明前后的变化，追踪居民的睡眠、心理健康和工作缺勤。</p><div class="actions">${btn("看研究摘要 →", "paper", { id: "10.3386/w36060" })}<span>2026 年 11 月</span></div></div><figure class="cover-print"><a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york" aria-label="查看馆藏完整照片"><img src="assets/fraser-wet-night.jpg" alt="纽约哥伦布圆环雨夜，树影之间的街灯倒映在湿漉漉的路面上" width="1000" height="1343" fetchpriority="high"></a><figcaption>纽约哥伦布圆环的雨夜，1899 · William A. Fraser 摄影（局部） <a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york">美国国家美术馆 ↗</a></figcaption></figure></div>
+  return `${homeFeature()}
     <section class="home-trend"><div><h2>健康研究占多少？</h2><p id="home-finding">${esc(homeFinding(venue, scope, compare))}</p><form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="basis" aria-label="趋势时间范围"><option value="toc">2010–2025 · 核对卷期</option><option value="issue" ${scope === "issue" ? "selected" : ""}>2003 年起 · 收录卷期</option></select><label><input type="checkbox" name="showNber" ${compare ? "checked" : ""}> 对照 NBER</label></form><small>更新至 ${esc(stats.cutoff)}</small></div><div id="home-figure">${homeSeries(venue, scope, compare)}</div></section>
     <section class="shelf"><h2>${year} 年的研究</h2><p class="meta">截至 ${esc(stats.cutoff)}，本年累计</p><div class="editions">${[
       "top5",
@@ -174,7 +178,7 @@ function channel(page, p) {
     (w) =>
       w.health &&
       (top
-        ? jnames.includes(w.venue) && (w.trend || current.includes(w))
+        ? jnames.includes(w.venue) && (w.trend || isCurrent(w))
         : w.venue === (nber ? "NBER" : sourceTitles[page])),
   );
   const scope = top
@@ -278,7 +282,7 @@ function library(p, page = "library", pool = works) {
           (series !== "toc" || w.inToc) &&
           (series !== "issue" || w.catalogueIssue))) &&
       (!p.get("set") || w.set === p.get("set")) &&
-      (!p.get("period") || current.includes(w)) &&
+      (!p.get("period") || isCurrent(w)) &&
       (!p.get("quarter") || quarter(w) === p.get("quarter")) &&
       (!volume || (volume === "unknown" ? !w.volume : w.volume === volume)) &&
       (!p.get("issue") || w.issue === p.get("issue")) &&
@@ -550,37 +554,51 @@ async function get(file) {
   if (!r.ok) throw Error(file);
   return r.json();
 }
-let catalogRequest, statsRequest;
-function loadCatalog() {
-  return (catalogRequest ||= get("papers-index")
-    .then((index) => {
-      works = index;
-      byId = new Map(works.map((w) => [w.id, w]));
-      for (const w of works)
-        w.search = [
-          w.title,
-          w.titleZh,
-          w.authors,
-          w.id,
-          w.venue,
-          w.question,
-          w.topic,
-        ]
-          .join(" ")
-          .toLowerCase();
-      works.sort(
-        (a, b) =>
-          Number(b.year) - Number(a.year) ||
-          a.venue.localeCompare(b.venue) ||
-          a.title.localeCompare(b.title),
-      );
-
-      current = works.filter((w) => ["本年卷期", "本年在线"].includes(w.set));
-    })
-    .catch((error) => {
-      catalogRequest = undefined;
+let statsRequest;
+const healthGroups = ["top5", "nber", "jhe", "he", "other"];
+const catalogRequests = new Map();
+function paperGroup(w) {
+  if (!w.health) return "all";
+  if (jnames.includes(w.venue)) return "top5";
+  return { NBER: "nber", [jhe]: "jhe", "Health Economics": "he" }[w.venue] || "other";
+}
+function catalogGroup(group) {
+  if (!catalogRequests.has(group)) {
+    const file = group === "all" ? "papers-index" : "index/" + group;
+    const request = get(file).then(rows => {
+      for (const w of rows)
+        w.search = [w.title, w.titleZh, w.authors, w.id, w.venue, w.question, w.topic].join(" ").toLowerCase();
+      return rows;
+    }).catch(error => {
+      catalogRequests.delete(group);
       throw error;
-    }));
+    });
+    catalogRequests.set(group, request);
+  }
+  return catalogRequests.get(group);
+}
+async function catalogFor(route, params) {
+  if (route === "paper") {
+    const id = params.get("id");
+    if (byId?.has(id)) return [byId.get(id)];
+    const hint = params.get("group") || (id?.startsWith("10.3386/") ? "nber" : "");
+    if (healthGroups.includes(hint)) {
+      const rows = await catalogGroup(hint);
+      if (rows.some(w => w.id === id)) return rows;
+    }
+    return catalogGroup("all");
+  }
+  if (healthGroups.includes(route)) return catalogGroup(route);
+  if (route === "library") {
+    if (params.get("scope") === "all") return catalogGroup("all");
+    return (await Promise.all(healthGroups.map(catalogGroup))).flat();
+  }
+}
+function loadingView(route) {
+  const block = '<div class="loading-block" aria-hidden="true"><i></i><i></i><i></i></div>';
+  const status = '<span class="sr-only" role="status">正在载入页面</span>';
+  return route === "home" ? homeFeature() + status + block :
+    `<div class="loading-page ${route === "paper" ? "reading-page" : ""}">${status}${block}${block}</div>`;
 }
 function loadStats() {
   return (statsRequest ||= get("archive-stats")
@@ -599,29 +617,20 @@ let navigation = 0;
 async function navigate() {
   const ticket = ++navigation,
     route = canonical(location.hash.slice(1).split("?")[0]);
-  const needs = [];
-  if (["top5", "nber", "jhe", "he", "library", "paper"].includes(route))
-    needs.push(loadCatalog());
-  if (["home", "top5", "nber", "jhe", "he", "atlas"].includes(route))
-    needs.push(loadStats());
-  if (
-    ![
-      "home",
-      "top5",
-      "nber",
-      "jhe",
-      "he",
-      "library",
-      "paper",
-      "atlas",
-      "about",
-    ].includes(route)
-  )
-    needs.push(loadStats());
-  if (needs.length) el.textContent = "正在读取…";
+  const params = new URLSearchParams(location.hash.split("?")[1]);
+  const needsStats = !["library", "paper", "about"].includes(route);
+  if (!el.dataset.rendered || el.dataset.route !== route) el.innerHTML = loadingView(route);
+  el.setAttribute("aria-busy", "true");
   try {
-    await Promise.all(needs);
+    const [rows] = await Promise.all([catalogFor(route, params), needsStats && loadStats()]);
     if (ticket !== navigation) return;
+    if (rows) {
+      works = rows;
+      byId = new Map(rows.map(w => [w.id, w]));
+    }
+    el.dataset.rendered = "true";
+    el.dataset.route = route;
+    el.removeAttribute("aria-busy");
     render();
     menu.setAttribute("aria-expanded", "false");
     document.querySelector("#main-nav").classList.remove("open");
@@ -632,6 +641,7 @@ async function navigate() {
     else window.scrollTo(0, 0);
   } catch (error) {
     if (ticket !== navigation) return;
+    el.removeAttribute("aria-busy");
     el.replaceChildren(document.createTextNode("页面数据暂时无法载入。 "));
     const button = document.createElement("button");
     button.textContent = "重试";

@@ -11,7 +11,7 @@
 
 首页、Top 5、NBER、JHE 的路径分别为 #home、#top5、#nber、#jhe。专业期刊栏内的 #jhe 与 #he 分别对应两本刊物。期刊记录可以含 volume、issue。索引中的 titleZh 用于中文检索。读者可以按有无摘要筛选。NBER 日期允许按季度检索。分栏图表可通过 focus=list 定位到同一页面内的对应记录。旧版目录链接仍可使用。
 
-年度篇数跳转到 #library?series=trend&year=2003；独立卷期占比使用 series=toc，目录占比使用 series=issue。论文页使用 #paper?id=10.1086%2F374180。筛选状态保存在链接中。传统专题快照和 data/catalog.json 保留作上游输入；当前前端以 papers-index 为准。
+年度篇数跳转到 #library?series=trend&year=2003；独立卷期占比使用 series=toc，目录占比使用 series=issue。论文页使用 #paper?id=10.1086%2F374180。筛选状态保存在链接中。默认健康目录合并 data/index/ 下的五个分组，各来源栏目只加载自己的分组。跨学科目录使用 papers-index.json。导入中间文件 catalog.json 与上游 CSV 同目录存放。
 
 ## 口径与来源
 

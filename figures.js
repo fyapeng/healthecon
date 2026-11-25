@@ -70,8 +70,11 @@ export function lineFigure(series, pct, title) {
   const narrow = matchMedia("(max-width: 650px)").matches;
   const width = narrow ? 410 : 720,
     height = narrow ? 200 : 215;
+  const names = series.map(s => narrow ? s.name.split(" · ")[0] : s.name);
+  // Reserve space for the widest label, including Chinese and long journal names.
+  const labelWidth = name => Array.from(name).reduce((n, c) => n + (c.charCodeAt(0) > 255 ? 14 : 8), 0);
   const left = 43,
-    right = 20,
+    right = Math.max(...names.map(labelWidth)) + 23,
     top = 17,
     base = height - 30;
   const max = Math.max(
@@ -121,12 +124,17 @@ export function lineFigure(series, pct, title) {
         : "",
     )
     .join("");
-  const legend = series
-    .map(
-      (s, i) =>
-        '<span class="key key-' + i + '">' + escapeText(s.name) + "</span>",
-    )
-    .join("");
+  const ends = series.map((s, i) => ({i, point: s.points.at(-1), label: names[i]}))
+    .sort((a, b) => y(a.point) - y(b.point));
+  const gap = 19;
+  for (const [rank, end] of ends.entries()) {
+    const lower = rank ? ends[rank - 1].labelY + gap : top;
+    end.labelY = Math.min(base - gap * (ends.length - rank - 1), Math.max(y(end.point), lower));
+  }
+  const endLabels = ends.map(({i, point, label, labelY}) => {
+    const anchor = x(point.year);
+    return `<g class="end-label s${i}" aria-hidden="true"><path d="M${anchor + 5} ${y(point)}L${anchor + 14} ${labelY}"/><text x="${anchor + 18}" y="${labelY + 4}">${escapeText(label)}</text></g>`;
+  }).join("");
   const lines = series
     .map((s, i) => {
       const pts = s.points.map((p) => x(p.year) + "," + y(p)).join(" ");
@@ -183,9 +191,7 @@ export function lineFigure(series, pct, title) {
     )
     .join("");
   return (
-    '<div class="time-figure"><div class="legend">' +
-    legend +
-    '</div><svg class="chart" viewBox="0 0 ' +
+    '<div class="time-figure"><svg class="chart" viewBox="0 0 ' +
     width +
     " " +
     height +
@@ -195,7 +201,7 @@ export function lineFigure(series, pct, title) {
     grid +
     labels +
     `<line class="year-guide" y1="${top}" y2="${base}" aria-hidden="true"/>` +
-    lines +
+    lines + endLabels +
     `</svg><div class="inspect-year"><label>查看年份 <strong></strong><input type="range" aria-label="查看年份" min="0" max="${years.length - 1}" step="1"></label><div class="year-values"></div></div>` +
     '<details class="numbers"><summary>查看年度数字</summary><table><thead><tr><th>年份</th>' +
     series.map((s) => "<th>" + escapeText(s.name) + "</th>").join("") +
@@ -211,7 +217,7 @@ export function activateFigures(root, preferredYear) {
     const chart = figure.querySelector(".chart");
     const rows = Array.from(figure.querySelectorAll("tbody tr"));
     const marks = Array.from(chart.querySelectorAll(".s0 circle"));
-    const columns = Array.from(figure.querySelectorAll(".key"), key => key.textContent);
+    const columns = Array.from(figure.querySelectorAll("thead th")).slice(1).map(cell => cell.textContent);
     const slider = figure.querySelector("input[type=range]");
     const label = figure.querySelector(".inspect-year strong");
     const values = figure.querySelector(".year-values");

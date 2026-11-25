@@ -9,6 +9,7 @@ import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from channel_indexes import write_channels
 from import_catalog import SOURCES, identifier, records, write
 from observatory import SLUG
 
@@ -214,7 +215,7 @@ def fill_published_from_nber(raw, papers, details, put):
 def build(args):
     raw = args.source / "采集"
     cat = args.source / "书目"
-    papers = {w["id"]: w for w in load(DATA / "catalog.json")}
+    papers = {w["id"]: w for w in load(cat / "catalog.json")}
     excluded = {w["id"] for w in load(DATA / "document_audit.json")}
     for file in (raw / "专业期刊卷期").glob("*-" + args.cutoff + ".json"):
         for key, item in load(file).items():
@@ -737,6 +738,7 @@ def build(args):
     for year, rows in groups.items():
         write(dest / (year + ".json"), rows)
     write(DATA / "papers-index.json", index)
+    write_channels(DATA, index)
     write(
         DATA / "archive-stats.json",
         {

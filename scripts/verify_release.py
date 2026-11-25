@@ -6,6 +6,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from channel_indexes import VENUES
+
 DATA = Path(__file__).resolve().parents[1] / "data"
 
 
@@ -17,6 +19,9 @@ def verify(bilingual=False):
     works = load("papers-index")
     by_id = {w["id"]: w for w in works}
     assert len(by_id) == len(works), "Duplicate public identifiers"
+    for group in ("top5", "nber", "jhe", "he", "other"):
+        expected = [w for w in works if w["health"] and VENUES.get(w["venue"], "other") == group]
+        assert load("index/" + group) == expected, group
     if bilingual:
         for w in works:
             assert re.search(r"[\u3400-\u9fff]", w.get("titleZh", "")), w["id"]
