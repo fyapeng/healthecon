@@ -721,3 +721,65 @@ summary {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+.chart .year-guide {
+  stroke: var(--muted);
+  stroke-dasharray: 2 4;
+  pointer-events: none;
+}
+.inspect-year {
+  padding: 12px 0;
+  border-block: 1px solid var(--line);
+}
+.inspect-year label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.inspect-year strong {
+  color: var(--ink);
+  font: bold 20px var(--serif);
+}
+.inspect-year input {
+  flex: 1;
+  min-width: 48px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.year-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 24px;
+  margin-top: 8px;
+}
+.year-values a {
+  display: grid;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+.year-values a:hover b, .year-values a:focus-visible b {
+  text-decoration: underline;
+}
+.year-values span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.year-values b {
+  color: var(--accent);
+  font-size: 17px;
+}
+.about-page {
+  max-width: 47rem;
+  margin: 2.6rem auto 5rem;
+}
+.about-page .about-lead {
+  font: clamp(18px, 2vw, 24px)/1.8 var(--serif);
+}
+.about-page section {
+  border-top: 1px solid var(--line);
+  padding-top: 1.2rem;
+  margin-top: 2rem;
+}
+.paper-actions a { overflow-wrap: anywhere; }

@@ -183,7 +183,7 @@ export function lineFigure(series, pct, title) {
     )
     .join("");
   return (
-    '<div class="legend">' +
+    '<div class="time-figure"><div class="legend">' +
     legend +
     '</div><svg class="chart" viewBox="0 0 ' +
     width +
@@ -194,13 +194,70 @@ export function lineFigure(series, pct, title) {
     '">' +
     grid +
     labels +
+    `<line class="year-guide" y1="${top}" y2="${base}" aria-hidden="true"/>` +
     lines +
-    '</svg><details class="numbers"><summary>查看年度数字</summary><table><thead><tr><th>年份</th>' +
+    `</svg><div class="inspect-year"><label>查看年份 <strong></strong><input type="range" aria-label="查看年份" min="0" max="${years.length - 1}" step="1"></label><div class="year-values"></div></div>` +
+    '<details class="numbers"><summary>查看年度数字</summary><table><thead><tr><th>年份</th>' +
     series.map((s) => "<th>" + escapeText(s.name) + "</th>").join("") +
     "</tr></thead><tbody>" +
     rows +
-    "</tbody></table></details>"
+    "</tbody></table></details></div>"
   );
+}
+
+// The readout, slider and links share the same rows as the accessible data table.
+export function activateFigures(root, preferredYear) {
+  for (const figure of root.querySelectorAll(".time-figure")) {
+    const chart = figure.querySelector(".chart");
+    const rows = Array.from(figure.querySelectorAll("tbody tr"));
+    const marks = Array.from(chart.querySelectorAll(".s0 circle"));
+    const columns = Array.from(figure.querySelectorAll(".key"), key => key.textContent);
+    const slider = figure.querySelector("input[type=range]");
+    const label = figure.querySelector(".inspect-year strong");
+    const values = figure.querySelector(".year-values");
+    const guide = chart.querySelector(".year-guide");
+    const positions = marks.map(mark => Number(mark.getAttribute("cx")));
+    const links = columns.map(name => {
+      const link = document.createElement("a");
+      const caption = document.createElement("span");
+      caption.textContent = name;
+      const value = document.createElement("b");
+      link.append(caption, value);
+      values.append(link);
+      return link;
+    });
+    function inspect(i) {
+      const row = rows[i];
+      const year = row.cells[0].textContent;
+      if (label.textContent === year) return;
+      label.textContent = year;
+      slider.value = i;
+      slider.setAttribute("aria-valuetext", year);
+      guide.setAttribute("x1", positions[i]);
+      guide.setAttribute("x2", positions[i]);
+      for (const [j, link] of links.entries()) {
+        const source = row.cells[j + 1].querySelector("a");
+        link.href = source.href;
+        link.lastChild.textContent = source.textContent;
+        link.setAttribute("aria-label", year + " 年 · " + columns[j] + " · " + source.textContent + "，浏览论文");
+      }
+    }
+    const selected = rows.findIndex(row => row.cells[0].textContent === preferredYear);
+    inspect(selected >= 0 ? selected : rows.length - 1);
+    slider.addEventListener("input", () => inspect(Number(slider.value)));
+    chart.addEventListener("pointermove", event => {
+      if (event.pointerType !== "mouse") return;
+      const transform = chart.getScreenCTM();
+      if (!transform) return;
+      const x = new DOMPoint(event.clientX, event.clientY).matrixTransform(transform.inverse()).x;
+      const i = positions.findIndex((v, j) => j + 1 === positions.length || x < (v + positions[j + 1]) / 2);
+      inspect(i);
+    });
+    chart.addEventListener("focusin", event => {
+      const mark = event.target.closest("a")?.querySelector("circle");
+      if (mark) inspect(positions.indexOf(Number(mark.getAttribute("cx"))));
+    });
+  }
 }
 
 export function bars(items) {
