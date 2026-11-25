@@ -112,6 +112,15 @@ the integer must refer to its own specific supporting excerpt E. Return {} if no
         n,q=excerpts[i-1]
         if re.search(ANCHORS[k],q,re.I):
             tags[k]=[n]
+    # A model may name a design correctly in its prose and omit it in its separate tag response.
+    confirmed_methods={"did":r"双重差分|双重差分法|差分中的差分",
+        "rd":r"断点回归|回归不连续","iv":r"工具变量","rct":r"随机对照试验|随机对照实验",
+        "admin":r"行政(?:记录|数据)","survey":r"调查数据|问卷调查"}
+    for k,zh in confirmed_methods.items():
+        if k not in tags and re.search(zh,text):
+            support=[n for n,q in excerpts if re.search(ANCHORS[k],q,re.I) and
+                not re.search(r"previous (?:research|studies)|prior studies",q,re.I)]
+            if support:tags[k]=sorted(set(support))[:3]
     first=folder/"audit-input-v1.json"
     if not first.exists():write(first,note)
     note["paragraphs"]=paras
