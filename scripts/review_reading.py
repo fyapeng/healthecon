@@ -78,20 +78,28 @@ def audit(folder: Path, source: Path, title: str):
     if not evidence:raise ValueError("无可核证的片段")
     data=f"{title}\nOpening pages:\n{opening}\nSource excerpts:\n{evidence}\nDraft:\n"+"\n".join(note["paragraphs"])
     idx={"type":"integer","minimum":1,"maximum":len(excerpts)}
-    schema={"type":"object","additionalProperties":False,"required":["paragraphs","tags"],
-        "properties":{"paragraphs":{"type":"array","minItems":2,"maxItems":2,"items":{"type":"string"}},
-                      "tags":{"type":"object","additionalProperties":False,"properties":{k:idx for k in LABELS}}}}
-    instructions=INSTRUCTION+"\nAllowed label codes: "+str(LABELS)
+    schema={"type":"object","additionalProperties":False,"required":["paragraphs"],
+        "properties":{"paragraphs":{"type":"array","minItems":2,"maxItems":2,
+                                    "items":{"type":"string","pattern":"^[^%％]+$"}}}}
+    instructions=INSTRUCTION.split("The second output")[0]+"""
+用中文返回 JSON。字段 paragraphs 写两个完整段落。第一段介绍具体研究问题、资料和方法，
+第二段说明主要发现和适用范围。两段合计约 300 个汉字。效应大小仅写方向，不写任何百分数，
+也不要抄写分类标签。格式为 {"paragraphs":["第一段中文导读","第二段中文导读"]}。"""
     for attempt in range(2):
         result=ask(instructions,data,1200,schema)
         paras=result.get("paragraphs",[])
         text="".join(paras)
-        if len(paras)==2 and len(re.findall(r"[\u3400-\u9fff]",text))>=120 and not re.search(r"[%％]|百分点|百分之",text):
+        if len(paras)==2 and all(len(re.findall(r"[\u3400-\u9fff]",p))>=55 for p in paras) and not re.search(r"[%％]|百分点|百分之|\b(?:survey|admin|providers):",text):
             break
         instructions+="\nDo not write percentages or percentage points. Give the direction in words. Supply two substantive paragraphs."
     else:raise ValueError("复核文字未通过检查")
+    tag_schema={"type":"object","additionalProperties":False,"properties":{k:idx for k in LABELS}}
+    tag_prompt=INSTRUCTION.partition("The second output")[2]+"\nAllowed codes: "+str(LABELS)+"""
+Return only a JSON object such as {"did":7}. Each key must be a supported label and
+the integer must refer to its own specific supporting excerpt E. Return {} if none."""
+    tag_result=ask(tag_prompt,title+"\n"+opening[:2400]+"\n"+evidence,400,tag_schema)
     tags={}
-    for k,i in result["tags"].items():
+    for k,i in tag_result.items():
         if k not in LABELS or type(i)!=int or not 1<=i<=len(excerpts):continue
         n,q=excerpts[i-1]
         if re.search(ANCHORS[k],q,re.I):
