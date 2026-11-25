@@ -7,7 +7,8 @@ from collections import Counter
 from pathlib import Path
 
 from channel_indexes import VENUES
-from fulltext_tags import read_tags
+from fulltext_tags import LABELS, read_tags
+from reading_archive import aer_proceedings
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 
@@ -20,6 +21,18 @@ def verify(bilingual=False):
     works = load("papers-index")
     by_id = {w["id"]: w for w in works}
     assert len(by_id) == len(works), "Duplicate public identifiers"
+    reading_path = DATA / "readings/index.json"
+    if reading_path.exists():
+        reading_index = load("readings/index")
+        seen = set()
+        for filename in sorted(reading_path.parent.glob("20*.json")):
+            for doi, note in load("readings/" + filename.stem).items():
+                assert by_id[doi]["health"] and by_id[doi]["year"] == filename.stem
+                assert doi not in seen and note["paragraphs"] and note["sources"]
+                assert note["unit"] in {"页","节"} and note["basis"] in {"正文","引言与正文"}
+                assert {LABELS[k]:v for k,v in note["tags"].items()} == reading_index[doi]
+                seen.add(doi)
+        assert seen == reading_index.keys()
     assert read_tags(DATA) == {w["id"]: w["fulltextTags"] for w in works if "fulltextTags" in w}
     for group in ("top5", "nber", "jhe", "he", "other"):
         expected = [w for w in works if w["health"] and VENUES.get(w["venue"], "other") == group]
@@ -42,6 +55,7 @@ def verify(bilingual=False):
         details = load("details/" + y)
         for key, d in details.items():
             w = by_id[key]
+            assert not (w["venue"] == "AER" and aer_proceedings(y,str(d.get("issue",""))))
             assert bool(w.get("hasAbstractZh")) == bool(d.get("abstractZh"))
             assert w["year"] == y and w["hasDetail"]
             assert w["hasAbstract"] == bool(d.get("abstract", {}).get("text"))
@@ -56,6 +70,7 @@ def verify(bilingual=False):
             if "workingPaper" in d:
                 assert by_id[d["workingPaper"]]["venue"] == "NBER"
         for w in (w for w in works if w["year"] == y):
+            assert w["venue"] != "AEA Papers and Proceedings" and not w["id"].startswith("10.1257/pandp.")
             assert w["hasDetail"] == (w["id"] in details)
             if w.get("trend"):
                 assert (

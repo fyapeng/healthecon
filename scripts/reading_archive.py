@@ -371,10 +371,12 @@ def build(args):
             details[key]["methods"] = w["methods"]
 
     toc = {}
+    proceedings = set()
     denom = defaultdict(Counter)
     for r in records(raw / "卷期目录/articles.csv"):
         venue = SLUG.get(r["journal_slug"])
         if venue == "AER" and aer_proceedings(r["year"], r["issue"]):
+            proceedings.add(r["doi"].lower())
             continue
         if venue and r["is_research"] == "1":
             if r["volume"].isdigit() and 2003 + int(r["volume"]) - VOLUME_2003[
@@ -515,7 +517,7 @@ def build(args):
         if w.get("health") and w["year"] == args.cutoff[:4] and w.get("catalogueIssue"):
             w["set"] = "本年卷期"
         if w["venue"] == "AER" and aer_proceedings(w["year"], str(r.get("issue", ""))):
-            w["articleType"] = "会议论文"
+            proceedings.add(key)
         if re.search(
             r"^(?:comment on|reply to|presidential address|fisher[–-]schultz lecture)|:\s*(?:comment|reply)$",
             plain(w["title"]),
@@ -579,6 +581,8 @@ def build(args):
         for y in range(int(START), int(args.cutoff[:4]) + 1)
     }
     for key, w in sorted(papers.items()):
+        if key in proceedings or key.startswith("10.1257/pandp.") or w["venue"] == "AEA Papers and Proceedings":
+            continue
         w["title"] = clean_title(w["title"]).replace("Using�Bounds", "Using Bounds").replace("Social�Value�of�Information", "Social Value of Information")
         if w.get("authors"):
             w["authors"] = w["authors"].replace("Andrea Szab�", "Andrea Szabó").replace("I. Fern�ndez-Val", "I. Fernández-Val")

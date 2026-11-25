@@ -13,6 +13,13 @@ const fmt = (n) => Number(n).toLocaleString("zh-CN");
 const btn = (title, page, params = {}) =>
   `<a class="btn" href="${esc(href(page, params))}">${esc(title)}</a>`;
 const detailCache = new Map();
+const readingYears = new Map();
+let readingIndex = {}, readingRequest;
+function loadReadingIndex() {
+  return readingRequest ||= get("readings/index").then(index => { readingIndex = index; })
+    .catch(() => { readingRequest = undefined; });
+}
+const readingVersions = {workingPaper:"工作论文版",acceptedVersion:"作者定稿",submittedVersion:"投稿稿",preprint:"预印本",publishedVersion:"期刊发表版",publisherCopy:"出版社版本",repositoryFullText:"机构库版本",localCopy:"本地核对版本",openCopy:"公开版本"};
 let stats, byId;
 let works;
 const isCurrent = w => w.set === "本年卷期" || w.set === "本年在线";
@@ -40,9 +47,10 @@ function paper(w, expanded = false) {
   const safe = /^https:\/\/(doi\.org|openalex\.org|arxiv\.org)\//i.test(url);
   const identifier = w.id.startsWith("10.") ? "DOI · " + w.id : "书目标识";
   const verified = Object.entries(w.fulltextTags || {});
+  const modelTags = Object.entries(readingIndex[w.id] || {}).filter(([label]) => !Object.hasOwn(w.fulltextTags || {}, label));
   const badges = verified.map(([label, pages]) =>
     `<span title="已核对全文 · PDF 第 ${esc(pages.join("、"))} 页">${esc(label)}</span>`
-  ).join("");
+  ).concat(modelTags.map(([label]) => `<span title="本地模型据正文识别">${esc(label)}</span>`)).join("");
   return `<article class="paper"><div class="meta">${esc(w.date || w.year)} · ${esc(w.venue)}${w.volume ? " · 卷 " + esc(w.volume) : ""}${w.issue ? " · 第 " + esc(w.issue) + " 期" : ""}${w.set === "本年在线" ? " · 提前在线" : ""}${w.articleType ? " · " + esc(w.articleType) : ""}</div><${expanded ? "h1" : "h3"}>${expanded ? esc(w.titleZh || w.title) : `<a href="${esc(internal)}">${esc(w.titleZh || w.title)}</a>`}</${expanded ? "h1" : "h3"}>${w.titleZh ? `<p lang="en">${esc(w.title)}</p>` : ""}${w.question ? `<p>${esc(w.question)}</p>` : ""}<div class="meta">${esc((w.authors || "").replaceAll(" | ", ", "))}</div>${[
     w.fulltextTags?.[w.topic] ? "" : w.topic,
     w.region,
@@ -51,7 +59,7 @@ function paper(w, expanded = false) {
     .map((x) => `<span class="tag">${esc(x)}</span>`)
     .join(
       "",
-    )}${badges ? `<div class="paper-tags" role="group" aria-label="已核对全文的标签">${badges}</div>` : ""}${w.hasDetail ? `<details class="paper-detail" data-year="${esc(w.year)}" data-key="${esc(w.id)}" ${expanded === true ? "open" : ""}><summary>${w.hasAbstract ? "阅读摘要" : "论文信息"}</summary><div class="abstract-body"></div></details>` : expanded === true ? "<p>这篇论文暂缺公开摘要。</p>" : ""}<div class="paper-actions">${safe ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(identifier)} ↗</a>` : ""}</div></article>`;
+    )}${badges ? `<div class="paper-tags" role="group" aria-label="已核对全文的标签">${badges}</div>` : ""}${(w.hasDetail || Object.hasOwn(readingIndex,w.id)) ? `<details class="paper-detail" data-year="${esc(w.year)}" data-key="${esc(w.id)}" ${expanded === true ? "open" : ""}><summary>${w.hasAbstract ? "阅读摘要" : "论文信息"}</summary><div class="abstract-body"></div></details>` : expanded === true ? "<p>这篇论文暂缺公开摘要。</p>" : ""}<div class="paper-actions">${safe ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(identifier)} ↗</a>` : ""}</div></article>`;
 }
 function paperPage(p) {
   const w = byId.get(p.get("id"));
@@ -61,6 +69,7 @@ function paperPage(p) {
 }
 async function readDetail(node) {
   if (!node.open || node.dataset.ready) return;
+  node.dataset.ready = "loading";
   const box = node.querySelector(".abstract-body"),
     year = node.dataset.year;
   box.textContent = "正在读取…";
@@ -73,8 +82,7 @@ async function readDetail(node) {
       }),
     );
   try {
-    const entry = (await detailCache.get(year))[node.dataset.key];
-    if (!entry) throw Error("missing");
+    const entry = (await detailCache.get(year))[node.dataset.key] || {};
     const a = entry.abstract;
     const links = [];
     if (entry.workingPaper)
@@ -95,8 +103,17 @@ async function readDetail(node) {
         ? `<p class="meta">JEL · ${esc(entry.jel.join(" · "))}</p>`
         : "") +
       (links.length ? `<div class="paper-actions">${links.join(" ")}</div>` : "");
+    if (Object.hasOwn(readingIndex,node.dataset.key)) {
+      if (!readingYears.has(year)) readingYears.set(year,get("readings/"+year).catch(e=>{readingYears.delete(year);throw e;}));
+      const note=(await readingYears.get(year))[node.dataset.key];
+      if (note) {
+        const locs=Object.entries(readingIndex[node.dataset.key]).map(([label,nums])=>esc(label)+" · 第 "+esc(nums.join("、"))+" "+esc(note.unit)).join("　");
+        box.insertAdjacentHTML("beforeend",`<section class="research-note"><h3>中文导读</h3><small class="meta">${esc(readingVersions[note.version] || "馆藏全文")} · 本地模型据${esc(note.basis)}整理</small>${note.paragraphs.map(t=>"<p>"+esc(t)+"</p>").join("")}${locs ? "<details><summary>全文标签出处</summary><small>"+locs+"</small></details>" : ""}</section>`);
+      }
+    }
     node.dataset.ready = "1";
   } catch {
+    delete node.dataset.ready;
     box.replaceChildren(document.createTextNode("摘要暂时无法载入。 "));
     const retry = document.createElement("button");
     retry.textContent = "重试";
@@ -257,6 +274,7 @@ function library(p, page = "library", pool = works) {
       (!p.get("issue") || w.issue === p.get("issue")) &&
       (!p.get("topic") || w.topic === p.get("topic")) &&
       (!p.get("method") || w.methodMentions?.includes(p.get("method"))) &&
+      (!p.get("fulltext") || Object.hasOwn(w.fulltextTags || {}, p.get("fulltext")) || Object.hasOwn(readingIndex[w.id] || {}, p.get("fulltext"))) &&
       (!p.get("region") || w.region === p.get("region")) &&
       (p.get("abstract") !== "yes" || w.hasAbstract) &&
       (p.get("abstract") !== "no" || !w.hasAbstract) &&
@@ -323,6 +341,7 @@ function library(p, page = "library", pool = works) {
         )
       : "",
     general ? select("topic", "全部主题", unique("topic"), p.get("topic")) : "",
+    select("fulltext", "全文标签", [...new Set(pool.flatMap(w => [...Object.keys(w.fulltextTags || {}), ...Object.keys(readingIndex[w.id] || {})]))].sort(), p.get("fulltext")),
     general
       ? select("region", "研究地点", unique("region"), p.get("region"))
       : "",
@@ -417,7 +436,7 @@ function about() {
   <p>你可以从首页的一年开始，沿着折线找到当年的论文。也可以直接在<a href="#library">文献概览</a>里查作者和题名，展开摘要，把筛选后的书目导出。想随意翻翻，可以从<a href="#atlas">研究主题</a>里的一个问题读起。</p></section>
   <section><h2>这些数字怎样读</h2><p>五大刊按卷期发表年计，NBER 按工作论文首次发布年计。每个比例的分母都是本来源当年的论文总数。五大刊依据本站逐篇选录，NBER 依据健康研究项目归属。一篇工作论文后来在期刊发表，两个来源会分别记录它。</p>
   <p>首页默认的五刊占比使用 2010–2025 年独立核对的卷期目录。想看更早的年份，可以切换到 2003 年起的本站卷期目录。今年的数字会随新论文增加。发现漏收、误收或年份有误，欢迎在 <a href="https://github.com/fyapeng/healthecon/issues">GitHub 留言</a>，附上题名或 DOI 就好。</p></section>
-  <section><h2>资料与致谢</h2><p>五刊卷期参考 <a href="https://github.com/kochiuyu/econ-journal-authors">Econ Journal Authors</a>（<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>），本站按刊年整理并校正部分会议期标记。工作论文来自 <a href="https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata">NBER 公开书目</a>，历史项目按<a href="https://www.nber.org/programs-projects/programs-working-groups/economics-health">合并后的健康研究项目</a>回溯。各篇摘要标有来源。</p>
+  <section><h2>资料与致谢</h2><p>五刊卷期参考 <a href="https://github.com/kochiuyu/econ-journal-authors">Econ Journal Authors</a>（<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>），AER 采用常规期。2017 年及以前的年会专期与 2018 年起独立出版的 AEA Papers and Proceedings 均已从目录和统计中剔除。工作论文来自 <a href="https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata">NBER 公开书目</a>，历史项目按<a href="https://www.nber.org/programs-projects/programs-working-groups/economics-health">合并后的健康研究项目</a>回溯。各篇摘要标有来源。</p>
   <p>首页雨夜街景摄于 1899 年，记录纽约哥伦布圆环的街灯。摄影师 William A. Fraser，公有领域作品，藏于<a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york">美国国家美术馆</a>。</p></section></article>`;
 }
 let exportRows = [];
@@ -596,7 +615,7 @@ async function navigate() {
   if (!el.dataset.rendered || el.dataset.route !== route) el.innerHTML = loadingView(route);
   el.setAttribute("aria-busy", "true");
   try {
-    const [rows] = await Promise.all([catalogFor(route, params), needsStats && loadStats()]);
+    const [rows] = await Promise.all([catalogFor(route, params), needsStats && loadStats(), loadReadingIndex()]);
     if (ticket !== navigation) return;
     if (rows) {
       works = rows;
