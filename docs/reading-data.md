@@ -21,3 +21,5 @@
 - 相关来源：[卷期目录](https://github.com/kochiuyu/econ-journal-authors/tree/c54c997888859067223103b659f4ee98d059b71b/releases/articles_toc_2010_2025)、[AEA 期务说明](https://swlb2.aeaweb.org/content/file?id=842)、[Econometrica 卷期](https://ideas.repec.org/s/wly/emetrp.html)、[Europe PMC](https://europepmc.org/RestfulWebService)、[NBER](https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata)。
 
 发布时更新 index.html 引用脚本的版本号。前端对数据请求使用相同的版本号，避免缓存使旧脚本与新快照混合。
+
+书目条目的 `fulltextTags` 只包含对该版本正文复核过的阳性标签，值为从 1 开始计的 PDF 文件页码。未出现的标签表示尚无已确认的阳性判断。原有的 `methodMentions` 仍表示英文摘要中的方法名称。前端在现有论文卡片上展示全文标签。

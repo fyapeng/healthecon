@@ -7,6 +7,7 @@ from collections import Counter
 from pathlib import Path
 
 from channel_indexes import VENUES
+from fulltext_tags import read_tags
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 
@@ -19,6 +20,7 @@ def verify(bilingual=False):
     works = load("papers-index")
     by_id = {w["id"]: w for w in works}
     assert len(by_id) == len(works), "Duplicate public identifiers"
+    assert read_tags(DATA) == {w["id"]: w["fulltextTags"] for w in works if "fulltextTags" in w}
     for group in ("top5", "nber", "jhe", "he", "other"):
         expected = [w for w in works if w["health"] and VENUES.get(w["venue"], "other") == group]
         assert load("index/" + group) == expected, group

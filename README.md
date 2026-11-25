@@ -26,3 +26,5 @@
 HE 的卷期缓存使用相同命令，指定 `--issn 1057-9230`，文件名为 `1057-9230.json`。人工补译保存在 `data/editorial-translations.json`。批量译文随索引和各年摘要一起发布，保留原始题名和摘要供读者对照。
 
 首页雨夜照片按展示构图提供三档 WebP 尺寸，图注链接到完整馆藏照片。界面拉丁字符使用本地托管的 [Source Sans 3](https://github.com/adobe-fonts/source-sans)，拉丁子集由 [Fontsource](https://fontsource.org/fonts/source-sans-3) 分发，授权见 [OFL](assets/fonts/OFL.txt)。
+
+全文标签使用本地 PDF。启动 Qwen3-4B-Instruct-2507 的 llama.cpp 服务（127.0.0.1:18246，每个并发请求 8192 tokens）后，运行 `python scripts/tag_fulltext.py DOI PDF路径`，可以在 `private/fulltext` 中取得逐页解析和按原句核对的模型候选。同一命令加 `--download-if-missing` 可从 NBER 获取指定工作论文到目标路径。核对正文后，将选定版本的文件哈希、总页数、标签及支持页码写入 `data/fulltext-tags.json`，再重建索引。PDF、原句和未采纳的候选留在本地。

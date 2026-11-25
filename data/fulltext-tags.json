@@ -1,0 +1,137 @@
+{
+  "10.1257/aer.104.12.3841": {
+    "sha256": "46a096592942887d045021ebe8b9822917c4427128e91cba703a96e1d3a207f0",
+    "pageCount": 44,
+    "tags": {
+      "structural": [
+        4
+      ],
+      "theory": [
+        14
+      ],
+      "iv": [
+        28
+      ],
+      "admin": [
+        8
+      ],
+      "insurance": [
+        8
+      ],
+      "providers": [
+        8
+      ],
+      "patients": [
+        15
+      ]
+    }
+  },
+  "10.3386/w17936": {
+    "sha256": "f16ebfad887a28d96ac78c00a440552ffe6fc18e8cdd9f17643068e023a4e87a",
+    "pageCount": 52,
+    "tags": {
+      "iv": [
+        18
+      ],
+      "admin": [
+        13
+      ],
+      "survey": [
+        28
+      ],
+      "providers": [
+        27
+      ]
+    }
+  },
+  "10.3386/w32179": {
+    "sha256": "254c42c0d8d8179674b9e2a2f4f8d46b4596e3e25a3d3477ed8b01d4be5cf592",
+    "pageCount": 50,
+    "tags": {
+      "iv": [
+        5
+      ],
+      "admin": [
+        10
+      ],
+      "providers": [
+        9
+      ],
+      "insurance": [
+        21
+      ]
+    }
+  },
+  "10.3386/w35426": {
+    "sha256": "7de88101588382e5c09396148d5b8d1ea0a08174ef369d44607dcbf3d6d2d5fd",
+    "pageCount": 60,
+    "tags": {
+      "structural": [
+        25
+      ],
+      "theory": [
+        21
+      ],
+      "iv": [
+        6
+      ],
+      "admin": [
+        5
+      ],
+      "survey": [
+        13
+      ],
+      "providers": [
+        20
+      ],
+      "patients": [
+        21
+      ]
+    }
+  },
+  "10.3386/w35944": {
+    "sha256": "8cd560c1712c761cb8ddb79d6c9553e5b972e9475fd2366ba527ef5e1d359d95",
+    "pageCount": 85,
+    "tags": {
+      "structural": [
+        18
+      ],
+      "theory": [
+        17
+      ],
+      "rct": [
+        8
+      ],
+      "admin": [
+        4
+      ],
+      "insurance": [
+        4
+      ],
+      "patients": [
+        18
+      ]
+    }
+  },
+  "10.3386/w36060": {
+    "sha256": "7ea8024e3a7e6f2c7b65cb9ee1efc4fe382b8dae9ae6f439fe4afdff0d80c3cc",
+    "pageCount": 52,
+    "tags": {
+      "did": [
+        14
+      ],
+      "rd": [
+        13
+      ],
+      "admin": [
+        9
+      ],
+      "survey": [
+        8
+      ],
+      "policy": [
+        9
+      ]
+    }
+  }
+}

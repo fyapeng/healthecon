@@ -8,7 +8,7 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=20261125-edition";
+} from "./figures.js?v=20261125-tags1";
 const el = document.querySelector("#app");
 const fmt = (n) => Number(n).toLocaleString("zh-CN");
 const btn = (title, page, params = {}) =>
@@ -40,15 +40,19 @@ function paper(w, expanded = false) {
   const url = w.id.startsWith("10.") ? "https://doi.org/" + w.id : w.id;
   const safe = /^https:\/\/(doi\.org|openalex\.org|arxiv\.org)\//i.test(url);
   const identifier = w.id.startsWith("10.") ? "DOI · " + w.id : "书目标识";
+  const verified = Object.entries(w.fulltextTags || {});
+  const badges = verified.map(([label, pages]) =>
+    `<span title="已核对全文 · PDF 第 ${esc(pages.join("、"))} 页">${esc(label)}</span>`
+  ).join("");
   return `<article class="paper"><div class="meta">${esc(w.date || w.year)} · ${esc(w.venue)}${w.volume ? " · 卷 " + esc(w.volume) : ""}${w.issue ? " · 第 " + esc(w.issue) + " 期" : ""}${w.set === "本年在线" ? " · 提前在线" : ""}${w.articleType ? " · " + esc(w.articleType) : ""}</div><${expanded ? "h1" : "h3"}>${expanded ? esc(w.titleZh || w.title) : `<a href="${esc(internal)}">${esc(w.titleZh || w.title)}</a>`}</${expanded ? "h1" : "h3"}>${w.titleZh ? `<p lang="en">${esc(w.title)}</p>` : ""}${w.question ? `<p>${esc(w.question)}</p>` : ""}<div class="meta">${esc((w.authors || "").replaceAll(" | ", ", "))}</div>${[
-    w.topic,
+    w.fulltextTags?.[w.topic] ? "" : w.topic,
     w.region,
   ]
     .filter((x) => x && x !== "待核")
     .map((x) => `<span class="tag">${esc(x)}</span>`)
     .join(
       "",
-    )}${w.hasDetail ? `<details class="paper-detail" data-year="${esc(w.year)}" data-key="${esc(w.id)}" ${expanded === true ? "open" : ""}><summary>${w.hasAbstract ? "阅读摘要" : "论文信息"}</summary><div class="abstract-body"></div></details>` : expanded === true ? "<p>这篇论文暂缺公开摘要。</p>" : ""}<div class="paper-actions">${safe ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(identifier)} ↗</a>` : ""}</div></article>`;
+    )}${badges ? `<div class="paper-tags" role="group" aria-label="已核对全文的标签">${badges}</div>` : ""}${w.hasDetail ? `<details class="paper-detail" data-year="${esc(w.year)}" data-key="${esc(w.id)}" ${expanded === true ? "open" : ""}><summary>${w.hasAbstract ? "阅读摘要" : "论文信息"}</summary><div class="abstract-body"></div></details>` : expanded === true ? "<p>这篇论文暂缺公开摘要。</p>" : ""}<div class="paper-actions">${safe ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(identifier)} ↗</a>` : ""}</div></article>`;
 }
 function paperPage(p) {
   const w = byId.get(p.get("id"));

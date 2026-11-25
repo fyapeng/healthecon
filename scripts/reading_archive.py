@@ -10,6 +10,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from channel_indexes import write_channels
+from fulltext_tags import read_tags
 from import_catalog import SOURCES, identifier, records, write
 from observatory import SLUG
 
@@ -563,6 +564,7 @@ def build(args):
             specialist_issues.update(load(issue_file))
     fill_published_from_nber(raw, papers, details, put)
     translations = load(DATA / "editorial-translations.json")
+    reviewed_tags = read_tags(DATA)
     years = {
         str(y): {
             j: {
@@ -709,6 +711,8 @@ def build(args):
             w["hasAbstractZh"] = True
         w["hasDetail"] = bool(detail)
         w.pop("sources", None)
+        if key in reviewed_tags:
+            w["fulltextTags"] = reviewed_tags[key]
         index.append(w)
     # Rebuilding the catalogue must retain published translations whose source still matches.
     prior_index = DATA / "papers-index.json"

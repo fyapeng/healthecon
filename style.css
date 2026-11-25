@@ -442,6 +442,19 @@ td {
   color: #695d51;
   margin: 6px 10px 0 0;
 }
+.paper-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: 7px 0;
+}
+.paper-tags span {
+  padding: 1px 7px;
+  border: 1px solid #d8cdbf;
+  border-radius: 2px;
+  color: #604b39;
+  font: 13px/1.55 var(--sans);
+}
 .paper-detail {
   margin: 8px 0;
 }
