@@ -208,5 +208,23 @@
     "titleZh": "光污染对睡眠、工作和心理健康的影响",
     "abstractDigest": "924b2c3f3a4b2587a3831d1d72046da9055fa4c9fabfb9aef82fb117792ad86b",
     "abstractZh": "本研究考察人工街灯对睡眠的影响，以及睡眠变化之后的心理健康、缺勤和身体活动变化。加拿大不列颠哥伦比亚省本拿比市将传统钠灯换成 LED 灯，相邻的温哥华同期没有更换照明。我们使用加拿大社区健康调查数据，考察两市交界处居民睡眠困难发生情况的差异。我们还利用本拿比各街区分批换灯的时间差进行市内估计，并将本拿比和温哥华的相似街区配对，进行双重差分分析。估计结果显示，换灯后睡眠困难随即减少；两至三年后，心理健康、缺勤和身体活动也有所改善。更接近自然光的暖色调 LED 灯带来的改善最大。"
+  },
+  "10.1002/hec.4034": {
+    "sourceTitle": "Credit where it is due: Investigating pathways from earned income tax credit expansion to maternal mental health",
+    "titleZh": "劳动所得税收抵免的扩围如何影响母亲的心理健康？"
+  },
+  "10.1002/hec.70048": {
+    "sourceTitle": "Time to Spare and Too Much Care? Crowding, Medical Intervention and Health Outcomes in the Maternity Ward",
+    "titleZh": "时间宽裕会导致过度医疗吗？产科病房的拥挤、医疗干预与健康结局"
+  },
+  "10.1257/aer.20120555": {
+    "sourceTitle": "CoVaR",
+    "titleZh": "CoVaR（条件在险价值）"
+  },
+  "10.3386/w24536": {
+    "sourceTitle": "The Impact of New Drug Launches on Life-Years Lost in 2015 from 19 Types of Cancer in 36 Countries",
+    "titleZh": "新药上市对癌症所致寿命损失的影响：2015 年 36 个国家、19 种癌症的证据",
+    "abstractDigest": "c9f95f77d9aa006425312eefb3c3e8b4d62f4a71d5aae63f87eca416bdfebbd1",
+    "abstractZh": "本研究使用双向固定效应设计，考察癌症药物对死亡率的影响及其成本效果。研究比较了 36 个国家 19 种癌症在 2015 年的相对死亡率与此前各国上市的相应药物相对数量之间的关系，并控制了相对发病率。估计表明，2006—2010 年间，针对某一癌症部位每多上市一种药物，2015 年该部位癌症造成的伤残调整寿命年（DALY）损失就减少 5.8%。按所有年龄组计算，2006—2010 年上市的癌症药物在 2015 年每多挽回一个寿命年，估计成本为 1,635 美元。研究估计，1982—2010 年上市的药物使 2015 年癌症造成的 DALY 损失减少约 23%。如果这段时期没有新药上市，2015 年将额外损失 2,630 万个伤残调整寿命年。"
   }
 }

@@ -8,9 +8,8 @@
 | data/details/{year}.json | 以 id 为键的单年详情。用索引中的 year 加载。abstract.text 为正文，version、source、url 表明其版本和出处。abstractZh 为已有中文译文；无译文时展示原文。hasDetail、hasAbstract 分别表示是否有详情或可展示摘要。senlab 为公开延伸阅读链接。workingPaper 指向独立的 NBER 记录。 |
 | data/archive-stats.json | top5[year][venue] 含 found（趋势篇数）、cataloguedHealth / cataloguedTotal（有卷期的公开目录口径）、inToc / total（独立卷期口径）。total 为 null 时，该年不能画独立卷期占比。跨刊合计先加分子和分母，再相除。nber[year] 为 EH 项目篇数和普通工作论文总数。jhe[year]、he[year] 分别为当年 JHE 和 HE 研究目录篇数。 |
 | data/arxiv.json | years[year] 为全站和 econ.* 分类计数，按首次公告月份分组；最后一年覆盖到 lastMonth。papers 为选读，不能据此推算全站健康经济学份额。 |
-| data/open-copies.json | 以 DOI 为键的开放版本 URL；链接可通向存储库或出版社。私人收藏在读者本机打开。 |
 
-首页、Top 5、NBER、JHE 的路径分别为 #home、#top5、#nber、#jhe。专业期刊栏内的 #jhe 与 #he 分别对应两本刊物。期刊记录可以含 volume、issue。索引中 titleZh 和 hasAbstractZh 分别用于筛选中文题名与中文摘要。NBER 日期允许按季度检索。分栏图表可通过 focus=list 定位到同一页面内的对应记录。旧版目录链接仍可使用。
+首页、Top 5、NBER、JHE 的路径分别为 #home、#top5、#nber、#jhe。专业期刊栏内的 #jhe 与 #he 分别对应两本刊物。期刊记录可以含 volume、issue。索引中的 titleZh 用于中文检索。读者可以按有无摘要筛选。NBER 日期允许按季度检索。分栏图表可通过 focus=list 定位到同一页面内的对应记录。旧版目录链接仍可使用。
 
 年度篇数跳转到 #library?series=trend&year=2003；独立卷期占比使用 series=toc，目录占比使用 series=issue。论文页使用 #paper?id=10.1086%2F374180。筛选状态保存在链接中。传统专题快照和 data/catalog.json 保留作上游输入；当前前端以 papers-index 为准。
 

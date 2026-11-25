@@ -55,13 +55,35 @@ def plain(value):
     return " ".join(value.split())
 
 
+def clean_title(value):
+    text = plain(value).replace("\u00ad", "").replace("\u200b", "")
+    return re.sub(r"\s*[*†‡]+$", "", text).rstrip()
+
+
 def normalized(text):
     text = unicodedata.normalize("NFKD", plain(text)).casefold()
     return "".join(c for c in text if c.isalnum())
 
 
 def abs_text(text, title):
-    text = re.sub(r"^Abstract\b[\s:.–-]*", "", plain(text), flags=re.IGNORECASE)
+    text = re.sub(r"^Keywords:.{1,240}?\bABSTRACT\s*:\s*", "", plain(text), flags=re.I)
+    if text.startswith(("The copyright to this Article is held by", "SFI Working Papers contain accounts", "Any opinions expressed here are those of the author(s) and not those of the IIIS")):
+        return ""
+    if re.search(r"JSTOR is a not-for-profit service|you may not download an entire issue|^This manuscript is a .work of the United States Government", text, re.I):
+        return ""
+    if text.startswith("The analysis and conclusions expressed herein") and "Very Preliminary: Please do not cite without permission of the authors." in text:
+        text = text.split("Very Preliminary: Please do not cite without permission of the authors.", 1)[1].strip()
+    text = re.sub(r"\s*(?:Copyright\s+©\s+The World Bank Health Economics|\(c\)\s+\d{4}\s+by The University of Chicago\.\s*All\s*rights reserved\.)\s*$", "", text, flags=re.I)
+    text = re.sub(r"^©\s*\d{4}\s+The Econometric Society\s*", "", text)
+    text = re.sub(r"\s*(?:\(?©\s*(?=\d{4})|\bCopyright\s+(?=(?:\(c\)|[0-9]|the |by |Econometric Society|American Economic Association|John Wiley|Oxford University Press|,\s*(?:Wiley|Oxford)))).{0,450}$", "", text, flags=re.I)
+    text = re.sub(r"\s*(?:Published by Elsevier[^.]{0,90}\.\s*)?All rights reserved\.?\s*$", "", text, flags=re.I)
+    text = re.sub(r"(?:\s+Copyright)+\s*$", "", text, flags=re.I)
+    text = re.sub(r"(?<=[.!?])\s+(?:JEL classification\s*:|Keywords\s*:).+$", "", text, flags=re.I)
+    text = (text.replace("ââ blockers", "β-blockers").replace('â€"', "—")
+            .replace("â€˜", "‘").replace("â€™", "’").replace("â€œ", "“")
+            .replace("passâ€ filtered", "pass” filtered").replace("â€ ", "-")
+            .replace("consequence‘", "consequence ‘"))
+    text = re.sub(r"^Abstract\b[\s:.–-]*", "", text, flags=re.IGNORECASE)
     text = re.sub(
         r"\s*Institutional subscribers to the NBER working paper series.*$",
         "",
@@ -158,6 +180,37 @@ def add_nber(raw, papers, put, cutoff):
     return counts, by_title, max(dates.values())
 
 
+def fill_published_from_nber(raw, papers, details, put):
+    """Use a clearly labelled working-paper abstract when NBER confirms its publication."""
+    venue_names = {"AER": "American Economic Review", "JPE": "Journal of Political Economy",
+                   "QJE": "Quarterly Journal of Economics", "REStud": "Review of Economic Studies",
+                   "Econometrica": "Econometrica", **{v: v for v in SPECIAL}}
+    missing = defaultdict(list)
+    for key, w in papers.items():
+        if w.get("venue") in venue_names and not w.get("aliasOf") and "abstract" not in details[key]:
+            missing[normalized(w["title"])].append(key)
+    base = raw / "NBER批量目录"
+    candidates = {}
+    for n, title in nber_fields(base / "title.tsv"):
+        t = normalized(title)
+        if n.startswith("w") and len(t) >= 20 and len(missing.get(t, [])) == 1:
+            candidates[n] = missing[t][0]
+    matches = defaultdict(set)
+    for n, citation in nber_fields(base / "published.tsv"):
+        if n not in candidates:
+            continue
+        key = candidates[n]
+        w = papers[key]
+        c = normalized(citation)
+        if (normalized(w["title"]) in c and normalized(venue_names[w["venue"]]) in c
+                and w["year"] in citation):
+            matches[key].add(n)
+    confirmed = {next(iter(ids)): key for key, ids in matches.items() if len(ids) == 1}
+    for n, abstract in nber_fields(base / "abs.tsv"):
+        if n in confirmed and abstract != "NULL":
+            put(confirmed[n], abstract, "NBER", "https://www.nber.org/papers/" + n, WORKING, 1)
+
+
 def build(args):
     raw = args.source / "采集"
     cat = args.source / "书目"
@@ -194,7 +247,15 @@ def build(args):
     def put(key, value, source, url, version, score):
         if key not in papers or scores.get(key, -1) > score:
             return
+        if key == "10.1002/hec.4374" and len(value or "") > 10000:
+            return  # The harvested text is the special-issue introduction body.
         text = abs_text(value, papers[key]["title"])
+        if key in {"10.1257/000282803321947119", "10.1257/000282803321947399"}:
+            text = text.replace("� nd", "find").replace("� rst", "first")
+        elif key == "10.1162/qjec.2008.123.1.325":
+            text = text.replace("e�ective", "effective")
+        elif key == "10.1257/aer.97.2.244":
+            text = text.replace(", � which", ", which")
         if text:
             details[key]["abstract"] = {
                 "text": text,
@@ -499,6 +560,7 @@ def build(args):
         issue_file = raw / "JHE卷期" / (issn + ".json")
         if issue_file.exists():
             specialist_issues.update(load(issue_file))
+    fill_published_from_nber(raw, papers, details, put)
     translations = load(DATA / "editorial-translations.json")
     years = {
         str(y): {
@@ -514,7 +576,30 @@ def build(args):
         for y in range(int(START), int(args.cutoff[:4]) + 1)
     }
     for key, w in sorted(papers.items()):
-        t = plain(w["title"]).casefold().strip(" .:")
+        w["title"] = clean_title(w["title"]).replace("Using�Bounds", "Using Bounds").replace("Social�Value�of�Information", "Social Value of Information")
+        if w.get("authors"):
+            w["authors"] = w["authors"].replace("Andrea Szab�", "Andrea Szabó").replace("I. Fern�ndez-Val", "I. Fernández-Val")
+        if w.get("region") == "待核":
+            w.pop("region")
+        t = w["title"].casefold().strip(" .:")
+        # Named administrative items can enter again through supplementary metadata.
+        if re.fullmatch(r"(?:guest )?editors?['’]s? introduction|index to volume \d+|notice|books received|honors and awards", t):
+            continue
+        if w["venue"] in JOURNALS and re.match(
+            r"^(?:minutes of the (?:annual|meeting of the executive committee)|"
+            r"proceedings of the one hundred .+? annual meeting|"
+            r"the econometric society (?:research monograph series report of the editors|\d{4} annual report of the president)|"
+            r"ad hoc search committee for the editor|report on the committee on the status of|"
+            r"reports? of the (?:selection committee for|editors?\b|president\b|finance committee|director\b|"
+            r"committee on|search committee|representative to the international economic association|first four years of the aea committee)|"
+            r"committee on (?:economic education|the status of)|american economic association (?:committee on statistics|universal academic questionnaire)|"
+            r"editor, (?:american economic review|journal of economic (?:literature|perspectives)))", t
+        ):
+            continue
+        if re.match(r"^(?:retraction|corrigendum|erratum|withdrawal notice)\s*:", t):
+            continue
+        if key == "10.1002/hec.3490":
+            w["articleType"] = "已撤稿"
         if w["venue"] in SPECIAL:
             # Truncated or machine-translated secondary records of indexed JHE articles.
             if key in {
@@ -559,7 +644,9 @@ def build(args):
                 "cover image",
                 "editorial announcement",
                 "forthcoming articles",
-                "editorial committee",
+                "editorial committee", "announcements", "accepted manuscripts",
+                "news notes", "forthcoming papers", "index", "guest editors' introduction",
+                "guest editors’ introduction",
             }
         ):
             continue
@@ -609,17 +696,42 @@ def build(args):
             groups[w["year"]][key] = detail
         w["hasAbstract"] = "abstract" in detail
         translation = translations.get(key, {})
-        if translation.get("sourceTitle") == w["title"]:
+        if clean_title(translation.get("sourceTitle")) == w["title"]:
             w.setdefault("titleZh", translation["titleZh"])
             if translation.get("abstractZh") and w["hasAbstract"]:
                 digest = hashlib.sha256(detail["abstract"]["text"].encode()).hexdigest()
                 if digest == translation["abstractDigest"] and not detail.get("abstractZh"):
                     detail.update(abstractZh=translation["abstractZh"], translationSource="healthecon · AI 辅助翻译")
+        if w.get("titleZh"):
+            w["titleZh"] = clean_title(w["titleZh"])
         if detail.get("abstractZh"):
             w["hasAbstractZh"] = True
         w["hasDetail"] = bool(detail)
         w.pop("sources", None)
         index.append(w)
+    # Rebuilding the catalogue must retain published translations whose source still matches.
+    prior_index = DATA / "papers-index.json"
+    if prior_index.exists():
+        old = {w["id"]: w for w in load(prior_index)}
+        old_years = {}
+        for w in index:
+            prev = old.get(w["id"])
+            if not prev:
+                continue
+            if prev["title"] == w["title"] and prev.get("titleZh"):
+                w.setdefault("titleZh", prev["titleZh"])
+            if not prev.get("hasAbstractZh") or not w["hasAbstract"] or w.get("hasAbstractZh"):
+                continue
+            year = prev["year"]
+            if year not in old_years:
+                filename = DATA / "details" / (year + ".json")
+                old_years[year] = load(filename) if filename.exists() else {}
+            earlier = old_years[year].get(w["id"], {})
+            detail = groups[w["year"]][w["id"]]
+            if earlier.get("abstract", {}).get("text") == detail["abstract"]["text"] and earlier.get("abstractZh"):
+                detail["abstractZh"] = earlier["abstractZh"]
+                detail["translationSource"] = earlier.get("translationSource", "本地机器翻译")
+                w["hasAbstractZh"] = True
     dest = DATA / "details"
     dest.mkdir(exist_ok=True)
     for year, rows in groups.items():

@@ -8,7 +8,7 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=20261124-trends3";
+} from "./figures.js?v=20261124-bilingual4";
 const el = document.querySelector("#app");
 const fmt = (n) => Number(n).toLocaleString("zh-CN");
 const btn = (title, page, params = {}) =>

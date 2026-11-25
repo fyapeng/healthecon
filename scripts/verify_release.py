@@ -1,6 +1,8 @@
 """Check the published indexes, year files, chart counts, and version links together."""
 
+import argparse
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -11,15 +13,19 @@ def load(name):
     return json.loads((DATA / (name + ".json")).read_text(encoding="utf8"))
 
 
-def verify():
+def verify(bilingual=False):
     works = load("papers-index")
     by_id = {w["id"]: w for w in works}
     assert len(by_id) == len(works), "Duplicate public identifiers"
+    if bilingual:
+        for w in works:
+            assert re.search(r"[\u3400-\u9fff]", w.get("titleZh", "")), w["id"]
+            assert bool(w.get("hasAbstractZh")) == w["hasAbstract"], w["id"]
     stats = load("archive-stats")
     arxiv = load("arxiv")
     years = {str(y) for y in range(2003, int(stats["cutoff"][:4]) + 1)}
     assert years == set(stats["top5"]) == set(stats["nber"]) == set(arxiv["years"])
-    assert set(w["year"] for w in works) == years
+    assert {w["year"] for w in works} == years
     counts = Counter()
     nber = Counter()
     jhe = Counter()
@@ -37,6 +43,8 @@ def verify():
                 abstracts += 1
             if d.get("abstractZh"):
                 assert w["hasAbstract"]
+                if bilingual:
+                    assert re.search(r"[\u3400-\u9fff]", d["abstractZh"]), key
                 translated += 1
             if "workingPaper" in d:
                 assert by_id[d["workingPaper"]]["venue"] == "NBER"
@@ -90,4 +98,6 @@ def verify():
 
 
 if __name__ == "__main__":
-    verify()
+    cli = argparse.ArgumentParser()
+    cli.add_argument("--bilingual", action="store_true")
+    verify(cli.parse_args().bilingual)
