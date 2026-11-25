@@ -46,6 +46,19 @@ NEXT = re.compile(r"(?im)^\s*(?:II[.:]?\s+|2[.)]?\s+)[A-Z][A-Za-z ,:&–-]{2,75}
 def compact(s):
     return " ".join(s.split())
 
+def clean_paragraphs(paragraphs):
+    if not isinstance(paragraphs, list):
+        return []
+    cleaned=[]
+    for p in paragraphs:
+        if not isinstance(p,str):return []
+        p=re.sub(r"^\s*description\s*[:：]\s*","",p,flags=re.I).strip()
+        p=p.replace("差分-in-差分","双重差分")
+        if len(re.findall(r"[\u3400-\u9fff]",p)) < 32 or re.search(r"\b(?:did|rct|survey|admin|providers|patients|policy)\s*:\s*(?:E?\d|[\w]+\s*[:,])|<think>|中文段落[一二]",p,re.I):
+            return []
+        cleaned.append(p)
+    return cleaned if 2<=len(cleaned)<=3 else []
+
 def source_units(path):
     if path.suffix.lower() == ".pdf":
         with pymupdf.open(path) as doc:
@@ -214,7 +227,7 @@ def read_one(r, vault, folder):
         "properties":{"paragraphs":{"type":"array","minItems":2,"maxItems":3,"items":{"type":"string"}},
                       "confirmed":{"type":"array","maxItems":12,"items":{"type":"string","enum":list(LABELS)}}}}
     summary=ask(instructions,r["title"]+"\nOpening pages:\n"+synopsis+"\n"+("引言节选："+intro[:6500]+"\n" if intro else "")+material+"\nCandidate labels and evidence:\n"+candidate_text,1050,schema)
-    paras=summary.get("paragraphs")
+    paras=clean_paragraphs(summary.get("paragraphs"))
     if not (isinstance(paras,list) and 1<=len(paras)<=6 and all(isinstance(p,str) for p in paras)
             and len(re.findall(r"[\u3400-\u9fff]", "".join(paras)))>=120):
         raise ValueError("中文导读不完整")

@@ -3,8 +3,9 @@ import hashlib
 import json
 import re
 from pathlib import Path
+import requests
 
-from corpus_readings import ANCHORS, CHECK, LABELS, ask, compact, main_text, source_units
+from corpus_readings import ANCHORS, CHECK, ENDPOINT, LABELS, MODEL, ask, compact, main_text, source_units
 from import_catalog import write
 
 INSTRUCTION = """Independently check this Chinese economics reading note against the supplied
@@ -78,18 +79,25 @@ def audit(folder: Path, source: Path, title: str):
     if not evidence:raise ValueError("无可核证的片段")
     data=f"{title}\nOpening pages:\n{opening}\nSource excerpts:\n{evidence}\nDraft:\n"+"\n".join(note["paragraphs"])
     idx={"type":"integer","minimum":1,"maximum":len(excerpts)}
-    schema={"type":"object","additionalProperties":False,"required":["paragraphs"],
-        "properties":{"paragraphs":{"type":"array","minItems":2,"maxItems":2,
-                                    "items":{"type":"string","pattern":"^[^%％]+$"}}}}
     instructions=INSTRUCTION.split("The second output")[0]+"""
-用中文返回 JSON。字段 paragraphs 写两个完整段落。第一段介绍具体研究问题、资料和方法，
-第二段说明主要发现和适用范围。两段合计约 300 个汉字。效应大小仅写方向，不写任何百分数，
-也不要抄写分类标签。格式为 {"paragraphs":["第一段中文导读","第二段中文导读"]}。"""
+直接写两个中文自然段，合计约三百字，用一个空行分开。第一段介绍具体研究问题、资料和方法，
+第二段说明主要发现和适用范围。效应大小仅写方向，不写任何百分数。只输出导读正文，
+不要标题、标签、格式说明或 JSON。"""
     for attempt in range(2):
-        result=ask(instructions,data,1200,schema)
-        paras=result.get("paragraphs",[])
+        response=requests.post(ENDPOINT,json={"model":MODEL,"temperature":0,"max_tokens":1050,
+            "messages":[{"role":"system","content":instructions},{"role":"user","content":data+"\n请写两段中文导读。"}]},
+            timeout=(8,400))
+        response.raise_for_status()
+        answer=response.json()["choices"][0]
+        if answer["finish_reason"]!="stop":continue
+        paras=[p.strip() for p in answer["message"]["content"].strip().splitlines() if p.strip()]
+        if len(paras)==1:
+            sentences=re.findall(r"[^。！？]+[。！？]|[^。！？]+$",paras[0])
+            cut=max(1,len(sentences)//2)
+            paras=["".join(sentences[:cut]),"".join(sentences[cut:])]
+        paras=[p.replace("差分-in-差分","双重差分") for p in paras]
         text="".join(paras)
-        if len(paras)==2 and all(len(re.findall(r"[\u3400-\u9fff]",p))>=55 for p in paras) and not re.search(r"[%％]|百分点|百分之|\b(?:survey|admin|providers):",text):
+        if len(paras)==2 and all(len(re.findall(r"[\u3400-\u9fff]",p))>=55 for p in paras) and not re.search(r"[%％]|百分点|百分之|description:|\b(?:did|survey|admin|providers):|^#",text,re.I):
             break
         instructions+="\nDo not write percentages or percentage points. Give the direction in words. Supply two substantive paragraphs."
     else:raise ValueError("复核文字未通过检查")
