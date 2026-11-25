@@ -1,5 +1,4 @@
 export const journals = ["AER", "QJE", "JPE", "REStud", "Econometrica"];
-export const jhe = "Journal of Health Economics";
 
 export function escapeText(value) {
   return String(value ?? "").replace(
