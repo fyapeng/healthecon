@@ -23,11 +23,13 @@ def verify():
     counts = Counter()
     nber = Counter()
     jhe = Counter()
+    he = Counter()
     abstracts = translated = 0
     for y in sorted(years):
         details = load("details/" + y)
         for key, d in details.items():
             w = by_id[key]
+            assert bool(w.get("hasAbstractZh")) == bool(d.get("abstractZh"))
             assert w["year"] == y and w["hasDetail"]
             assert w["hasAbstract"] == bool(d.get("abstract", {}).get("text"))
             if w["hasAbstract"]:
@@ -62,8 +64,11 @@ def verify():
             if w["venue"] == "Journal of Health Economics":
                 assert w["health"]
                 jhe[y] += 1
+            if w["venue"] == "Health Economics":
+                he[y] += 1
         assert nber[y] == stats["nber"][y][0] <= stats["nber"][y][1]
         assert jhe[y] == stats["jhe"][y]
+        assert he[y] == stats["he"][y]
         assert 0 <= arxiv["years"][y][1] <= arxiv["years"][y][0]
         for j, cell in stats["top5"][y].items():
             for measure in ("found", "inToc", "cataloguedHealth", "cataloguedTotal"):

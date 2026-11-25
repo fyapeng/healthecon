@@ -180,7 +180,7 @@ h3 {
   align-self: center;
 }
 .hero h1 {
-  font-size: clamp(42px, 4.7vw, 75px);
+  font-size: clamp(33px, 3.25vw, 50px);
   margin: 16px 0 23px;
 }
 .hero .copy > p:not(.eyebrow) {
@@ -532,7 +532,7 @@ summary {
     gap: 20px;
   }
   .hero h1 {
-    font-size: clamp(33px, 5.6vw, 51px);
+    font-size: clamp(30px, 4.2vw, 36px);
   }
   .hero .copy > p:not(.eyebrow) {
     font-size: 16px;
@@ -568,7 +568,7 @@ summary {
     grid-template-columns: 1fr;
   }
   .hero h1 {
-    font-size: clamp(35px, 9vw, 50px);
+    font-size: clamp(28px, 7.2vw, 36px);
     margin: 10px 0;
   }
   .hero .actions {
@@ -658,5 +658,66 @@ summary {
   }
   .menu-toggle {
     white-space: nowrap;
+  }
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  font-weight: 600;
+  letter-spacing: -0.062em;
+}
+.logo img {
+  width: 0.74em;
+  height: 0.74em;
+}
+.logo i {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--accent);
+  letter-spacing: -0.07em;
+}
+.hero .cover-print {
+  display: block;
+  margin: 0;
+  align-self: center;
+}
+.cover-print > a {
+  display: block;
+}
+.hero .cover-print img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1.87;
+  object-fit: cover;
+  object-position: 50% 57%;
+}
+.cover-print figcaption {
+  padding-top: 0.5rem;
+  font: 12px/1.5 var(--sans);
+  color: var(--muted);
+}
+.cover-print figcaption a {
+  white-space: nowrap;
+}
+.journal-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 1rem;
+}
+.journal-tabs a {
+  padding: 0.22rem 0.85rem;
+  border: 1px solid var(--line);
+  text-decoration: none;
+}
+.journal-tabs a[aria-current] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+@media (min-width: 651px) {
+  .editions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

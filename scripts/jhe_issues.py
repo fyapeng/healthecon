@@ -1,4 +1,4 @@
-"""Fetch publisher-deposited volume and issue identifiers for the JHE catalogue."""
+"""Fetch publisher-deposited volume and issue identifiers for a specialist journal."""
 
 import argparse
 import json
@@ -9,7 +9,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
-def collect(destination):
+def collect(destination, issn="0167-6296"):
     session = requests.Session()
     session.mount("https://", HTTPAdapter(max_retries=Retry(
         total=4, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504]
@@ -18,7 +18,7 @@ def collect(destination):
     cursor = "*"
     while True:
         response = session.get(
-            "https://api.crossref.org/journals/0167-6296/works",
+            f"https://api.crossref.org/journals/{issn}/works",
             params={"cursor": cursor, "rows": 1000, "select": "DOI,volume,issue"},
             timeout=45,
         )
@@ -39,4 +39,6 @@ def collect(destination):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("destination", type=Path)
-    collect(parser.parse_args().destination)
+    parser.add_argument("--issn", choices=["0167-6296", "1057-9230"], default="0167-6296")
+    args = parser.parse_args()
+    collect(args.destination, args.issn)

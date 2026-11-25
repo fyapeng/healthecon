@@ -1,6 +1,7 @@
 """Build the public reading index and lazy-loaded abstracts for every archive year."""
 
 import argparse
+import hashlib
 import html
 import json
 import re
@@ -493,8 +494,12 @@ def build(args):
 
     groups = defaultdict(dict)
     index = []
-    issue_file = raw / "JHE卷期" / "0167-6296.json"
-    jhe_issues = load(issue_file) if issue_file.exists() else {}
+    specialist_issues = {}
+    for issn in ("0167-6296", "1057-9230"):
+        issue_file = raw / "JHE卷期" / (issn + ".json")
+        if issue_file.exists():
+            specialist_issues.update(load(issue_file))
+    translations = load(DATA / "editorial-translations.json")
     years = {
         str(y): {
             j: {
@@ -516,6 +521,8 @@ def build(args):
                 "https://openalex.org/W2945701817",
                 "https://openalex.org/W3191583633",
                 "https://openalex.org/W3209241743",
+                "https://openalex.org/W2792644040",  # book review
+                "https://openalex.org/W3082628320",  # workshop introduction
             }:
                 continue
             is_notice = re.search(
@@ -559,8 +566,8 @@ def build(args):
         if w.get("aliasOf") or w["year"] < START or w["year"] > args.cutoff[:4]:
             continue
         detail = details[key]
-        if w["venue"] == "Journal of Health Economics" and key in jhe_issues:
-            volume, issue = jhe_issues[key]
+        if w["venue"] in SPECIAL and key in specialist_issues:
+            volume, issue = specialist_issues[key]
             w["volume"] = volume
             if issue:
                 w["issue"] = issue
@@ -601,6 +608,15 @@ def build(args):
         if detail:
             groups[w["year"]][key] = detail
         w["hasAbstract"] = "abstract" in detail
+        translation = translations.get(key, {})
+        if translation.get("sourceTitle") == w["title"]:
+            w.setdefault("titleZh", translation["titleZh"])
+            if translation.get("abstractZh") and w["hasAbstract"]:
+                digest = hashlib.sha256(detail["abstract"]["text"].encode()).hexdigest()
+                if digest == translation["abstractDigest"] and not detail.get("abstractZh"):
+                    detail.update(abstractZh=translation["abstractZh"], translationSource="healthecon · AI 辅助翻译")
+        if detail.get("abstractZh"):
+            w["hasAbstractZh"] = True
         w["hasDetail"] = bool(detail)
         w.pop("sources", None)
         index.append(w)
@@ -616,6 +632,7 @@ def build(args):
             "top5": years,
             "nber": nber,
             "nberLatest": nber_latest,
+            "he": dict(Counter(w["year"] for w in index if w["venue"] == "Health Economics")),
             "jhe": {
                 year: sum(w["venue"] == "Journal of Health Economics" and w["year"] == year
                           for w in index)

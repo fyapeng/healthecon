@@ -7,7 +7,7 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=20261124-edition1";
+} from "./figures.js?v=20261124-gallery2";
 const el = document.querySelector("#app");
 const fmt = (n) => Number(n).toLocaleString("zh-CN");
 const btn = (title, page, params = {}) =>
@@ -120,30 +120,35 @@ const latestYear = () => stats.cutoff.slice(0, 4);
 const sourceTitles = {
   top5: "经济学五大刊",
   nber: "NBER 工作论文",
-  jhe: "Journal of Health Economics",
+  jhe,
+  he: "Health Economics",
 };
-const sourceNames = { top5: "Top 5", nber: "NBER", jhe: "JHE" };
+const sourceNames = { top5: "Top 5", nber: "NBER", jhe: "JHE", he: "HE" };
 
-function home(p) {
-  const venue = jnames.includes(p.get("venue")) ? p.get("venue") : "";
-  const scope = p.get("basis") === "issue" ? "issue" : "toc";
+function homeSeries(venue, scope, compare) {
   const points = topSeries(stats, venue, scope);
   const years = new Set(points.map((v) => v.year));
-  const compare = p.get("nber") !== "off";
   const lines = [{ name: (venue || "五大刊") + " · 健康研究", points }];
   if (compare)
     lines.push({
       name: "NBER · 健康项目",
       points: nberSeries(stats).filter((v) => years.has(v.year)),
     });
+  return lineFigure(lines, true, "健康研究在各来源中的年度占比");
+}
+function home(p) {
+  const venue = jnames.includes(p.get("venue")) ? p.get("venue") : "";
+  const scope = p.get("basis") === "issue" ? "issue" : "toc";
+  const compare = p.get("nber") !== "off";
   const year = latestYear();
   return `<p class="definition">健康经济学研究生活条件如何影响健康，也研究谁能获得医疗、谁来支付费用。</p>
-    <div class="hero"><div class="copy"><p class="eyebrow">近期研究　/　NBER 工作论文</p><h1>街灯换了，<br>居民睡得更好吗？</h1><p>加拿大本拿比市陆续把老式街灯换成 LED 灯。研究者比较街区更换照明前后的变化，追踪居民的睡眠、心理健康和工作缺勤。</p><div class="actions">${btn("读这篇研究 ↗", "paper", { id: "10.3386/w36060" })}<span>2026 年 11 月</span></div></div><figure><img src="assets/streetlights.webp" alt="黑白版画插图，从卧室的窗户望向路灯照亮的住宅街道" width="1706" height="922" fetchpriority="high"></figure></div>
-    <section class="home-trend"><div><h2>健康研究占多少？</h2><p>五大刊按卷期发表年，NBER 按工作论文发布年。两条线各用本来源的年度论文总数作分母。</p><form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="basis" aria-label="期刊分母"><option value="toc">独立卷期 · 2010–2025</option><option value="issue" ${scope === "issue" ? "selected" : ""}>本站卷期 · 2003 年起</option></select><label><input type="checkbox" name="showNber" ${compare ? "checked" : ""}> 对照 NBER</label></form><small>数据截至 ${esc(stats.cutoff)}</small></div><div>${lineFigure(lines, true, "健康研究在各来源中的年度占比")}</div></section>
+    <div class="hero"><div class="copy"><p class="eyebrow">近期研究　/　NBER 工作论文</p><h1>街灯换了，<br>居民睡得更好吗？</h1><p>加拿大本拿比市陆续把老式街灯换成 LED 灯。研究者比较街区更换照明前后的变化，追踪居民的睡眠、心理健康和工作缺勤。</p><div class="actions">${btn("读这篇研究 ↗", "paper", { id: "10.3386/w36060" })}<span>2026 年 11 月</span></div></div><figure class="cover-print"><a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york" aria-label="查看馆藏完整照片"><img src="assets/fraser-wet-night.jpg" alt="纽约哥伦布圆环雨夜，树影之间的街灯倒映在湿漉漉的路面上" width="1000" height="1343" fetchpriority="high"></a><figcaption>纽约哥伦布圆环的雨夜，1899 · William A. Fraser 摄影（局部） <a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york">美国国家美术馆 ↗</a></figcaption></figure></div>
+    <section class="home-trend"><div><h2>健康研究占多少？</h2><p>五大刊按卷期发表年，NBER 按工作论文发布年。两条线各用本来源的年度论文总数作分母。</p><form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="basis" aria-label="期刊分母"><option value="toc">独立卷期 · 2010–2025</option><option value="issue" ${scope === "issue" ? "selected" : ""}>本站卷期 · 2003 年起</option></select><label><input type="checkbox" name="showNber" ${compare ? "checked" : ""}> 对照 NBER</label></form><small>数据截至 ${esc(stats.cutoff)}</small></div><div id="home-figure">${homeSeries(venue, scope, compare)}</div></section>
     <section class="shelf"><h2>${year} 年的研究</h2><p class="meta">截至 ${esc(stats.cutoff)}，本年累计</p><div class="editions">${[
       "top5",
       "nber",
       "jhe",
+      "he",
     ]
       .map((source, i) => {
         const n =
@@ -151,8 +156,8 @@ function home(p) {
             ? topSeries(stats, "", "trend").at(-1).count
             : source === "nber"
               ? stats.nber[year][0]
-              : stats.jhe[year];
-        return `<a href="${href(source, { year, series: source === "top5" ? "trend" : "" })}"><span>${["五大刊 · 卷期发表", "NBER · 健康项目", "JHE · 期刊收录"][i]}</span><strong>${n} <small>篇</small></strong><em>浏览论文 →</em></a>`;
+              : stats[source][year];
+        return `<a href="${href(source, { year, series: source === "top5" ? "trend" : "" })}"><span>${["五大刊 · 卷期发表", "NBER · 健康项目", "JHE · 期刊收录", "HE · 期刊收录"][i]}</span><strong>${n} <small>篇</small></strong><em>浏览论文 →</em></a>`;
       })
       .join("")}</div></section>`;
 }
@@ -171,7 +176,7 @@ function channel(page, p) {
       w.health &&
       (top
         ? jnames.includes(w.venue) && (w.trend || current.includes(w))
-        : w.venue === (nber ? "NBER" : jhe)),
+        : w.venue === (nber ? "NBER" : sourceTitles[page])),
   );
   const scope = top
     ? ["toc", "issue"].includes(p.get("series"))
@@ -184,7 +189,7 @@ function channel(page, p) {
     ? topSeries(stats, venue, scope)
     : nber
       ? nberSeries(stats)
-      : Object.entries(stats.jhe).map(([year, count]) => ({
+      : Object.entries(stats[page]).map(([year, count]) => ({
           year,
           count,
           link: href(page, { year, focus: "list" }),
@@ -229,7 +234,7 @@ function channel(page, p) {
     ? "查阅五大经济学期刊中的健康研究，比较不同期刊的发表数量与占比。"
     : nber
       ? "按首次发布年份，阅读 NBER 健康经济学项目的工作论文。"
-      : "浏览《健康经济学杂志》自 2003 年以来的论文，按年份或卷期查找研究。";
+      : "按年份或卷期浏览这本刊物自 2003 年以来的研究。";
   const controls = top
     ? `<form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="series" aria-label="图表指标"><option value="trend">发表篇数</option><option value="toc" ${scope === "toc" ? "selected" : ""}>独立卷期占比</option><option value="issue" ${scope === "issue" ? "selected" : ""}>本站目录占比</option></select></form>`
     : nber
@@ -243,9 +248,11 @@ function channel(page, p) {
         : "按卷期计算，提前在线论文另列。"
     : nber
       ? "项目占比的分母为 NBER 同年全部普通工作论文。"
-      : "篇数按本站收录的 JHE 研究论文计算。";
+      : `篇数按本站收录的 ${sourceNames[page]} 研究论文计算。`;
   return (
-    titleblock(sourceNames[page], sourceTitles[page], intro) +
+    (!top && !nber
+      ? `<section><div class="journal-tabs" role="group" aria-label="选择专业期刊">${["jhe", "he"].map((code) => `<a href="${href(code, { year: p.get("year"), q: p.get("q"), zh: p.get("zh"), sort: p.get("sort") })}" ${code === page ? 'aria-current="page"' : ""}>${sourceNames[code]}</a>`).join("")}</div><h1>${sourceTitles[page]}</h1><p>${intro}</p></section>`
+      : titleblock(sourceNames[page], sourceTitles[page], intro)) +
     `<div class="overview"><section><h2>年度${percent ? "占比" : "篇数"}</h2>${controls}${lineFigure([{ name: lineName, points }], percent, lineName + "年度趋势")}<p class="meta">${caption} 本年截至 ${esc(nber ? stats.nberLatest : stats.cutoff)}。</p></section><section><span class="eyebrow">${esc(year)} 年</span><h2>${side}</h2>${breakdown.length ? bars(breakdown) : "<p>该年没有这一口径的卷期记录。</p>"}</section></div>` +
     library(p, page, corpus)
   );
@@ -288,6 +295,8 @@ function library(p, page = "library", pool = works) {
       (!p.get("topic") || w.topic === p.get("topic")) &&
       (!p.get("method") || w.methodMentions?.includes(p.get("method"))) &&
       (!p.get("region") || w.region === p.get("region")) &&
+      (p.get("zh") !== "title" || w.titleZh) &&
+      (p.get("zh") !== "abstract" || w.hasAbstractZh) &&
       (!term || w.search.includes(term)),
   );
   const chronological = (a, b) =>
@@ -322,6 +331,7 @@ function library(p, page = "library", pool = works) {
           venue,
         )
       : "",
+    `<select name="zh" aria-label="译文"><option value="">全部语言</option><option value="title" ${p.get("zh") === "title" ? "selected" : ""}>有中文题名</option><option value="abstract" ${p.get("zh") === "abstract" ? "selected" : ""}>有中文摘要</option></select>`,
     select("year", "全部年份", unique("year").reverse(), year),
     nber
       ? select("quarter", "全部季度", ["1", "2", "3", "4"], p.get("quarter"))
@@ -440,7 +450,7 @@ function about() {
     ) +
     `<section class="box"><h2>五大刊与专业期刊</h2><p>篇数按同刊同年已收录的健康研究计算。目录占比采用本站有卷期的同刊条目，2010–2025 年另可对照独立卷期目录计算研究论文占比。专业期刊和工作论文可在文献概览中单独浏览。</p><a href="https://github.com/kochiuyu/econ-journal-authors">卷期核对数据 ↗</a> · <a href="https://openalex.org/">OpenAlex ↗</a></section>
   <section class="box"><h2>工作论文与时间</h2><p>NBER 以首次发布日期计年。2023 年两个卫生研究项目合并，历史数据按现有项目归属回溯。arXiv 用原始公告编号计月。首次公开是可观测时间，实际构思可能更早。不同系列和发表版本分别保留。</p><a href="https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata">NBER 原始数据 ↗</a> · <a href="https://www.nber.org/programs-projects/programs-working-groups/economics-health">NBER 项目沿革 ↗</a> · <a href="https://huggingface.co/datasets/librarian-bots/arxiv-metadata-snapshot">arXiv 元数据镜像 ↗</a></section>
-  <section class="box"><h2>阅读全文</h2><p>有开放版本的论文提供 arXiv 或 OpenAlex 登记的全文入口；期刊页面可能另有机构访问要求。个人收藏的 PDF 可在本地打开。</p><a class="btn" href="reader.html">打开本机全文阅读器</a></section><p class="meta">首页街灯版画为配合本期论文制作的 AI 生成插图。</p>`
+  <section class="box"><h2>阅读全文</h2><p>有开放版本的论文提供 arXiv 或 OpenAlex 登记的全文入口；期刊页面可能另有机构访问要求。个人收藏的 PDF 可在本地打开。</p><a class="btn" href="reader.html">打开本机全文阅读器</a></section><p class="meta">首页配图选自 William A. Fraser 1899 年的摄影凹版作品《Wet Night, Columbus Circle, New York》。美国国家美术馆藏，编号 2002.120.23，公有领域。<a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york">查看完整作品与使用说明 ↗</a>。</p>`
   );
 }
 let exportRows = [];
@@ -458,6 +468,7 @@ function render() {
     top5: (p) => channel("top5", p),
     nber: (p) => channel("nber", p),
     jhe: (p) => channel("jhe", p),
+    he: (p) => channel("he", p),
     library,
     paper: paperPage,
     atlas,
@@ -465,7 +476,10 @@ function render() {
   };
   el.innerHTML = (pages[page] || home)(p);
   document.querySelectorAll("nav a").forEach((a) => {
-    if (a.hash === "#" + (page === "paper" ? "library" : page))
+    if (
+      a.hash ===
+      "#" + (page === "paper" ? "library" : page === "he" ? "jhe" : page)
+    )
       a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   });
@@ -486,7 +500,20 @@ function render() {
         else next.set("nber", "off");
       }
       if (form.hasAttribute("data-list")) next.set("focus", "list");
-      location.hash = href(page, Object.fromEntries(next));
+      const url = href(page, Object.fromEntries(next));
+      if (page === "home" && form.elements.showNber) {
+        history.replaceState(history.state, "", url);
+        const figure = document.getElementById("home-figure");
+        const expanded = figure.querySelector("details")?.open;
+        figure.innerHTML = homeSeries(
+          form.elements.venue.value,
+          form.elements.basis.value,
+          form.elements.showNber.checked,
+        );
+        if (expanded) figure.querySelector("details").open = true;
+        return;
+      }
+      location.hash = url;
     };
     form.onsubmit = (e) => {
       e.preventDefault();
@@ -583,11 +610,11 @@ function canonical(route) {
 let navigation = 0;
 async function navigate() {
   const ticket = ++navigation,
-    route = location.hash.slice(1).split("?")[0] || "home";
+    route = canonical(location.hash.slice(1).split("?")[0]);
   const needs = [];
-  if (["top5", "nber", "jhe", "library", "paper"].includes(route))
+  if (["top5", "nber", "jhe", "he", "library", "paper"].includes(route))
     needs.push(loadCatalog());
-  if (["home", "top5", "nber", "jhe", "atlas"].includes(route))
+  if (["home", "top5", "nber", "jhe", "he", "atlas"].includes(route))
     needs.push(loadStats());
   if (
     ![
@@ -595,6 +622,7 @@ async function navigate() {
       "top5",
       "nber",
       "jhe",
+      "he",
       "library",
       "paper",
       "atlas",
