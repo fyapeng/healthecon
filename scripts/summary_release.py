@@ -29,6 +29,31 @@ def aligned_pdf(path,sections):
             return len(sections)==1 and .76<=len(selected)/max(1,len(observed))<=1.12
     return False
 
+def text_boundaries(path, sections):
+    """Compare each extracted section against a second plain-text rendering."""
+    with pymupdf.open(path) as doc:
+        text="\n".join(page.get_text("text",sort=True) for page in doc)
+    letters=[];offset=[]
+    for i,c in enumerate(text.lower()):
+        if c.isascii() and c.isalpha():letters.append(c);offset.append(i)
+    plain="".join(letters)
+    headings={"引言":r"introduction|abstract","结论":r"conclu(?:sions?|ding)|discussion","相关研究":r"literature|previous studies|related (?:work|research)"}
+    for title,ps in sections:
+        value=re.sub("[^a-z]",""," ".join(ps).lower())
+        if len(value)<140:return False
+        start=plain.find(value[:65]);end=plain.find(value[-65:],max(0,start+65))
+        if start<0 or end<0:return False
+        stop=end+65
+        if not .84<=len(value)/(stop-start)<=1.09:return False
+        a=offset[start];b=offset[stop-1]+1
+        if not re.search(headings[title],text[max(0,a-440):a],re.I):return False
+        # A folio may precede the next heading, but ordinary continuation prose cannot.
+        tail=text[b:b+1200].strip(" .:;\t\r\n")
+        next_lines=[line.strip() for line in tail.splitlines() if line.strip() and not re.fullmatch(r"\d{1,3}",line.strip())]
+        if not next_lines:continue
+        if not re.match(r"^(?:(?:[IVX]+|\d+(?:\.\d+)*)[.)]?\s+)?(?:[A-Z][A-Za-z ,:&–-]{1,85}|[A-Z][A-Za-z ,:&–-]{1,65}\.)$",next_lines[0]):return False
+    return True
+
 def release(worker,w,path,folder,site,labels):
     if w["id"] in SEEDS:return
     dest=site/"summaries"
@@ -41,13 +66,13 @@ def release(worker,w,path,folder,site,labels):
     summary=folder/"summary.json"
     if summary.is_file() and not entry.get("hasSummary"):
         verdict_file=folder/"译文核对.json"
-        if not verdict_file.is_file():
+        if not verdict_file.is_file() or (json.loads(verdict_file.read_text(encoding="utf8")).get("status")=="章节边界待核" and "boundaryVersion" not in json.loads(verdict_file.read_text(encoding="utf8"))):
             source=(pdf_sections if path.suffix.lower()==".pdf" else xml_sections)(path)
             result=json.loads(summary.read_text(encoding="utf8"))["sections"]
             if len(result)!=len(source) or any(s["name"]!=k or len(s["paragraphs"])!=len(ps) for s,(k,ps) in zip(result,source)):raise ValueError("章节结构需要复核")
             import time
             started=time.monotonic()
-            if path.suffix.lower()==".pdf" and not aligned_pdf(path,source):status="章节边界待核"
+            if path.suffix.lower()==".pdf" and not (aligned_pdf(path,source) or text_boundaries(path,source)):status="章节边界待核"
             else:
                 pairs=[(en,zh) for s,(_,ps) in zip(result,source) for en,zh in zip(ps,s["paragraphs"])]
                 def check(pair):
@@ -55,7 +80,7 @@ def release(worker,w,path,folder,site,labels):
                     system='Audit the entire Chinese translation against the English. Check all sentences, economic meaning, quantities, units, directions of effects, uncertainty, and author attribution. Reject missing clauses, an invented result, figure-axis or contents-page text, a garbled or truncated passage, or a translated task prompt. Minor stylistic differences are fine. Output only JSON {"pass":true} or {"pass":false}.'
                     return worker.ask(system,"EN: "+a+"\nZH: "+b,80,True).get("pass") is True
                 status="通过" if all(list(worker.pool.map(check,pairs))) else "译文待核"
-            write(verdict_file,dict(status=status,seconds=round(time.monotonic()-started,2)))
+            write(verdict_file,dict(status=status,boundaryVersion=2,seconds=round(time.monotonic()-started,2)))
         if json.loads(verdict_file.read_text(encoding="utf8"))["status"]=="通过":
             year=dest/(str(w["year"])+".json")
             books=json.loads(year.read_text(encoding="utf8")) if year.exists() else {}
