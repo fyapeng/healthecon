@@ -14,8 +14,11 @@ CASES=[
     ("10.3386/w36059","实证研究",{"admin":[4,9],"did":[26]},{"rct":[7]}),
     ("10.1093/qje/qjaa029","实证研究",{"rct":[],"admin":[]},{}),
     ("10.1257/aer.20170950","理论研究",{"theory":[]},{"rct":[],"admin":[]}),
+    ("10.1093/qje/qjab017","实证研究",{"iv":[]},{}),
+    ("10.1162/qjec.2009.124.2.597","实证研究",{"rd":[]},{}),
+    ("10.1257/aer.20170471","实证研究",{"structural":[]},{}),
 ]
-PAT={"theory":"model|mechanism|theorem","admin":"administrative|claims|registry","rct":"randomi[sz]|randomly|trial|RCT",
+PAT={"theory":"model|mechanism|theorem","structural":"structural model|we estimate.{0,70}model","rd":"regression discontinuity","admin":"administrative|claims|registry","rct":"randomi[sz]|randomly|trial|RCT",
      "did":"difference.{1,4}in.{1,4}difference|DID","iv":"instrumental|2SLS|instrument"}
 
 def check(vault,repo):

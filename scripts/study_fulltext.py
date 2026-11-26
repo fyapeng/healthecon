@@ -3,6 +3,7 @@ import hashlib
 import json
 import re
 import time
+import unicodedata
 from contextvars import ContextVar
 from threading import Lock
 from pathlib import Path
@@ -45,7 +46,7 @@ def chat(instruction,source,tokens=1600,structured=False):
 def segments(units):
     result=[]
     for n,raw in enumerate(units,1):
-        text=compact(re.sub(r"(?<=[a-z])-\s*\n\s*(?=[a-z])","",raw))
+        text=compact(unicodedata.normalize("NFKC",re.sub(r"(?<=[a-z])-\s*\n\s*(?=[a-z])","",raw)))
         # Entire body, including online appendices within the supplied file; skip only
         # short fragments. Keep adjacent sentences together so their speaker is visible.
         at=0
@@ -70,7 +71,7 @@ A review table listing another paper's data or design does not count as this cha
 A review can contain an original model, data analysis, or literature count. Literature counts are not
 administrative data. Actual Medicaid/Medicare enrollment and billing claims are administrative data.
 A cited RCT is not an RCT by the authors. An explicit choice or capital model can be theory without structural estimation.
-Return {"evidence":[3,7],"tags":{"admin":8}} with integer IDs from the excerpts, no prose. Use empty lists/objects if appropriate.
+Return an object with "evidence" (a list of excerpt IDs) and "tags" (a mapping from a label code to its supporting excerpt ID). Use only the actual IDs printed beside the source. Use empty lists/objects if appropriate.
 Allowed codes: """+str(LABELS)
     try:result=chat(prompt,kind+"\n"+doc,540,True)
     except OverflowError:
@@ -79,8 +80,10 @@ Allowed codes: """+str(LABELS)
         a,b=block_index(raw[:mid],kind),block_index(raw[mid:],kind)
         return {"evidence":a["evidence"]+b["evidence"],"tags":a["tags"]+b["tags"]}
     valid={k for k,_ in raw}
-    evidence=[i for i in result.get("evidence",[]) if type(i) is int and i in valid][:6]
-    tags=[(k,i) for k,i in (result.get("tags") or {}).items() if k in LABELS and type(i) is int and i in valid]
+    def read_id(x):
+        return int(str(x).lstrip("E")) if re.fullmatch(r"E?\d+",str(x)) else None
+    evidence=[read_id(i) for i in result.get("evidence",[]) if read_id(i) in valid][:6]
+    tags=[(k,read_id(i)) for k,i in (result.get("tags") or {}).items() if k in LABELS and read_id(i) in valid]
     return {"evidence":evidence,"tags":tags}
 
 def spread(ids,limit):
@@ -96,6 +99,15 @@ def genre(title,opening):
         return {"kind":"理论研究"}
     result=chat("判断本文体裁，依照作者开篇对自己工作的说明。综述中讨论他人实验不属于原创实证。返回 JSON，字段 kind 必须为 "+str(KINDS)+" 之一。",title+"\n"+opening[:14500],150,True)
     if result.get("kind") not in KINDS:raise ValueError("文体待核")
+    if result["kind"] in {"综述与原创分析","文献综述"}:
+        self_review=re.search(r"(?:this (?:chapter|review|survey|paper|article)|\bwe)\b[^.!?]{0,70}\b(?:overview|review|synthesi[sz]e|survey)\b[^.!?]{0,90}\b(?:research|literature|evidence|studies|findings)\b",opening[:5500],re.I)
+        own_design=re.search(r"\bour (?:IV (?:analysis|framework|approach)|regression discontinuity design|experimental design)\b|\bwe (?:use|implement) an? (?:instrumental variable|difference.in.difference|regression discontinuity)|\bwe (?:reexamine|estimate|study|examine|investigate)\b[^.!?]{0,120}\busing (?:panel |administrative |individual.level |longitudinal )?data\b",opening,re.I)
+        if own_design and not self_review:return {"kind":"实证研究"}
+        if not self_review:
+            second=chat("根据论文前两页判断作者亲自做了什么。给出一句英文原话，判断属于原创实证、理论或方法，还是综述。若是综述，原话必须是作者对整篇文章的明确说明。输出 JSON，字段 kind 和 quote。kind 的可选值为 "+str(KINDS),title+"\n"+opening[:6200],350,True)
+            quote=compact(str(second.get("quote","")))
+            if len(quote)<20 or quote.lower() not in opening.lower() or second.get("kind") not in KINDS:raise ValueError("文体归属的原句待核实")
+            return second
     return result
 
 def own_declarations(parts,kind):
@@ -103,8 +115,17 @@ def own_declarations(parts,kind):
     # Headings, cited studies, data made available to others and plans for future work
     # are not declarations that these authors performed an analysis.
     found={}
+    structural_model=None
+    model_fit=None
     for i,(page,txt) in enumerate(parts,1):
         for sentence in re.split(r"(?<=[.!?])\s+",txt):
+            if kind not in {"文献综述","综述与原创分析"}:
+                if re.search(r"\bwe\b[^.!?]{0,125}\b(?:using|use|analyze|link)\b[^.!?]{0,115}\b(?:Panel Study of Income Dynamics|Medical Expenditure Panel Survey|Health and Retirement Study)\b",sentence,re.I):
+                    found.setdefault("survey",dict(pages=[page],reason="作者使用了已具名的住户或个人跟踪调查。",quote=sentence,excerpt=i))
+                if re.search(r"\bour structural (?:model|parameters?)\b",sentence,re.I):
+                    structural_model=(page,sentence,i)
+                if re.search(r"\bwe (?:estimate|fit) (?:the parameters of )?our (?:structural |choice |behavioral |dynamic )?models?\b",sentence,re.I):
+                    model_fit=(page,sentence,i)
             m=re.search(r"\b(?:we (?:use|used|evaluate|analy[sz]e|link|exploit|estimate|implement|employ|conduct|conducted|randomly assign(?:ed)?)|(?:drawing on|using) administrative data, we|our (?:primary (?:source of )?data|primary source of data|main (?:data|analysis)|data (?:come|are|consist)|empirical (?:design|strategy|analysis)))\b",sentence,re.I)
             if not m:continue
             claim=sentence[m.start():]
@@ -113,7 +134,7 @@ def own_declarations(parts,kind):
                 "theory":(r"^we analy[sz]e\b[^.!?]{0,150}\bthrough a new [^.!?]{0,60}\bmodel\b","作者构建模型并用它分析所提出的制度。"),
                 "admin":(ADMIN,"作者直接使用了行政登记或业务理赔记录。"),
                 "did":(r"diff(?:erence|erences)[ -]in[ -]diff(?:erence|erences)","作者在自己的实证设计中使用了双重差分。"),
-                "iv":(r"instrumental[ -]variables? (?:approach|strategy|design|estim|regression)|two.stage least squares","作者使用工具变量进行估计。"),
+                "iv":(r"instrumental[ -]variables?(?:\s*\(IV\))? (?:approach|strategy|framework|design|estim|regression)|two.stage least squares","作者使用工具变量进行估计。"),
                 "rd":(r"regression[ -]discontinuity (?:approach|design|framework|strategy|estim)","作者使用断点回归设计。"),
                 "rct":(r"\bwe randomly assign(?:ed)?\b|\b(?:conduct|conducted|evaluate|analyze) (?:a |an )?(?:large.scale )?randomi[sz]ed (?:(?:controlled|pilot|field) )?(?:trial|experiment|study)","论文利用试验中实际实施的随机分组进行分析。"),
                 "survey":(r"\b(?:household survey data|questionnaire responses|data from (?:the |a |our )?[^.;]{0,55}survey|survey data (?:from|on|collected))\b","作者直接分析了调查所得的资料。")}
@@ -121,6 +142,9 @@ def own_declarations(parts,kind):
                 if code in found or not re.search(pat,claim,re.I):continue
                 if kind in {"文献综述","综述与原创分析"} and not re.search(r"\bour (?:own|original|primary source of data)\b|\bwe (?:use|analy[sz]e|link) (?:individual.level |administrative |patient.level )?(?:medicaid|medicare|claims|registry)",claim,re.I):continue
                 found[code]=dict(pages=[page],reason=why,quote=claim,excerpt=i)
+    if structural_model and model_fit:
+        page,quote,i=model_fit
+        found["structural"]=dict(pages=sorted({page,structural_model[0]}),reason="作者明确给出结构模型，并使用数据估计所建模型。",quote=quote,modelQuote=structural_model[1],excerpt=i)
     return found
 
 def verified_tags(title,kind,parts,candidates,opening):
@@ -171,6 +195,15 @@ ESSAY="""你为经济学研究者撰写能独立阅读的中文文章总结。�
 比较中，不写泛泛的“填补空白”。写成一篇连贯的长文，不写提纲、摘要、标题或标签。通常约1200–2000个汉字，
 复杂研究可以更长。不要为凑长度复述。每段末附上支持该段的原文片段号，形式 [E12,E24]。只能使用提供的证据。"""
 
+def check_paragraph(body,evidence):
+    # Require explicit support for dataset provenance and quantitative claims.
+    if re.search(r"人口普查局|人口调查局",body) and not re.search(r"census bureau|bureau of (?:the )?census",evidence,re.I):
+        return "所引原文没有给出美国人口普查局这一数据提供者，请删除该归属。"
+    figures=lambda s:{x.replace(",","") for x in re.findall(r"(?<![A-Za-z\d])\d[\d,]*\.\d+(?!\d)",s)}
+    missing=figures(body)-figures(evidence)
+    if missing:return "请用原文能直接核对的数值，或用定性表述："+", ".join(sorted(missing))
+    return ""
+
 def section_essay(title,kind,parts,chosen,workspace):
     """Build a continuous essay from a paper-specific outline, retaining checked paragraphs on retry."""
     plan_file=workspace/"essay-outline.json"
@@ -195,6 +228,8 @@ def section_essay(title,kind,parts,chosen,workspace):
             for attempt in range(4):
                 body=chat("写一段可以直接发表的中文经济学论文总结，约200至320汉字，一个自然段。基于所给英文材料论证本段主题，若论点与证据不符，以证据为准。交代足够的制度或经济含义。精确描述比较对象、数量和作者归属，不添加材料以外的事实。直接写正文，不写标题、不提任务、不列片段号。",context+correction,850).strip()
                 if len(re.findall("[一-龥]",body))<140 or "\n\n" in body or re.search(r"<think>|^#|我将|这段文字",body):continue
+                correction=check_paragraph(body,proof)
+                if correction:continue
                 verdict=chat("逐项核实中文段落与英文证据是否相符，特别是作者归属、比较对象及数值。可接受合乎原意的转述。用中文简短回答。结构为 "+'{"supported":true,"issue":""} 或 {"supported":false,"issue":"引述有问题的词及如何据原文改正"}。',proof+"\n待核段落："+body,340,True)
                 if verdict.get("supported") is True:
                     write(target,{"text":body,"pages":sorted({parts[i-1][0] for i in item["ids"]})})
@@ -234,6 +269,7 @@ def essay(title,kind,parts,ids,opening_ids,workspace):
                 issues=[]
                 for start in range(0,len(paragraphs),3):
                     group=paragraphs[start:start+3]
+                    issues.extend(v for p in group if (v:=check_paragraph(p["text"]," ".join(parts[i-1][1] for i in p["refs"]))))
                     packet="\n".join(p["text"]+"\n"+"\n".join(parts[i-1][1] for i in dict.fromkeys(p["refs"])) for p in group)
                     check=chat("逐段审核论文总结与紧随其后的英文出处。只报告改变结论的具体错误，每段最多列出两项，每项限一句。特别是把被引研究当本文设计、"
                                "比较组或分母错误、把数量写成比例、虚构贡献、把相关写成因果。若证据不支持段落中的具体主张，也指出该主张。"

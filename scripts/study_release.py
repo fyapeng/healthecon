@@ -6,7 +6,7 @@ from pathlib import Path
 from collections import defaultdict
 from fulltext_tags import LABELS
 from import_catalog import write
-FORMAT="long-study-attribution-2"
+FORMAT="long-study-attribution-3"
 
 def key(doi,sha):
     return hashlib.sha256((doi+sha).encode()).hexdigest()
