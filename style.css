@@ -852,3 +852,9 @@ summary {
   .top { grid-template-columns: minmax(0, 1fr) auto; }
   .top .clock { display: none; }
 }
+.paper-tags .label-group {display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:.3rem;margin-right:.6rem}
+.label-group small {font:600 .74rem/1.5 system-ui;color:#5a554d}
+.paper-tags .label-topic span {background:#f5e7df;border-color:#ddb9a8;color:#823c26}
+.paper-tags .label-method span {background:#e7eff3;border-color:#b9ccd6;color:#294e64}
+.paper-tags .label-data span {background:#e7efe8;border-color:#bdcfc0;color:#30563b}
+.study-body h3 {margin-top:1.6rem}

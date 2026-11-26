@@ -19,6 +19,33 @@ function loadReadingIndex() {
   return readingRequest ||= get("studies/index").then(index => { readingIndex = index; })
     .catch(() => { readingRequest = undefined; });
 }
+let taxonomy, taxonomyRequest, summaryIndex = {}, summaryRequest;
+const topicAliases = new Map();
+function loadTaxonomy() {
+  return taxonomyRequest ||= get("taxonomy").then(data => {
+    taxonomy = data;
+    for (const {name, aliases} of Object.values(data.topics)) {
+      for (const alias of [name, ...aliases]) topicAliases.set(alias, name);
+    }
+  }).catch(error => { taxonomyRequest = undefined; throw error; });
+}
+function loadSummaries() {
+  return summaryRequest ||= get("summaries/index").then(data => {summaryIndex = data;})
+    .catch(error => { summaryRequest = undefined; throw error; });
+}
+function topicsFor(w) {
+  const names = [w.topic, ...Object.keys(readingIndex[w.id] || {}), ...(summaryIndex[w.id]?.tags || [])];
+  return [...new Set(names.map(n => topicAliases.get(n)).filter(Boolean))];
+}
+function labelsFor(w, group) {
+  const all = new Set([...Object.keys(readingIndex[w.id] || {}), ...(summaryIndex[w.id]?.tags || [])]);
+  return Object.values(taxonomy[group]).filter(name => all.has(name));
+}
+function badgesFor(w) {
+  return [["topic","主题",topicsFor(w)],["method","方法",labelsFor(w,"methods")],["data","数据",labelsFor(w,"data")]]
+    .filter(([, ,items]) => items.length)
+    .map(([key,title,items]) => `<div class="label-group label-${key}"><small>${title}</small>${items.map(name=>`<span>${esc(name)}</span>`).join("")}</div>`).join("");
+}
 const readingVersions = {workingPaper:"工作论文版",acceptedVersion:"作者定稿",submittedVersion:"投稿稿",preprint:"预印本",publishedVersion:"期刊发表版",publisherCopy:"出版社版本",repositoryFullText:"机构库版本",localCopy:"本地核对版本",openCopy:"公开版本"};
 let stats, byId;
 let works;
@@ -46,22 +73,20 @@ function paper(w, expanded = false) {
   const url = w.id.startsWith("10.") ? "https://doi.org/" + w.id : w.id;
   const safe = /^https:\/\/(doi\.org|openalex\.org|arxiv\.org)\//i.test(url);
   const identifier = w.id.startsWith("10.") ? "DOI · " + w.id : "书目标识";
-  const badges = Object.entries(readingIndex[w.id] || {}).map(([label]) =>
-    `<span title="论文正文依据见详情页">${esc(label)}</span>`).join("");
+  const badges = badgesFor(w);
   return `<article class="paper"><div class="meta">${esc(w.date || w.year)} · ${esc(w.venue)}${w.volume ? " · 卷 " + esc(w.volume) : ""}${w.issue ? " · 第 " + esc(w.issue) + " 期" : ""}${w.set === "本年在线" ? " · 提前在线" : ""}${w.articleType ? " · " + esc(w.articleType) : ""}</div><${expanded ? "h1" : "h3"}>${expanded ? esc(w.titleZh || w.title) : `<a href="${esc(internal)}">${esc(w.titleZh || w.title)}</a>`}</${expanded ? "h1" : "h3"}>${w.titleZh ? `<p lang="en">${esc(w.title)}</p>` : ""}${w.question ? `<p>${esc(w.question)}</p>` : ""}<div class="meta">${esc((w.authors || "").replaceAll(" | ", ", "))}</div>${[
-    readingIndex[w.id]?.[w.topic] ? "" : w.topic,
     w.region,
   ]
     .filter((x) => x && x !== "待核")
     .map((x) => `<span class="tag">${esc(x)}</span>`)
     .join(
       "",
-    )}${badges ? `<div class="paper-tags" role="group" aria-label="已核对全文的标签">${badges}</div>` : ""}${(w.hasDetail || Object.hasOwn(readingIndex,w.id)) ? `<details class="paper-detail" data-year="${esc(w.year)}" data-key="${esc(w.id)}" ${expanded === true && !Object.hasOwn(readingIndex,w.id) ? "open" : ""}><summary>${w.hasAbstract ? "阅读摘要" : "论文信息"}</summary><div class="abstract-body"></div></details>` : expanded === true ? "<p>这篇论文暂缺公开摘要。</p>" : ""}<div class="paper-actions">${safe ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(identifier)} ↗</a>` : ""}</div></article>`;
+    )}${badges ? `<div class="paper-tags" role="group" aria-label="论文标签">${badges}</div>` : ""}${(w.hasDetail || Object.hasOwn(readingIndex,w.id)) ? `<details class="paper-detail" data-year="${esc(w.year)}" data-key="${esc(w.id)}" ${expanded === true && !Object.hasOwn(readingIndex,w.id) ? "open" : ""}><summary>${w.hasAbstract ? "阅读摘要" : "论文信息"}</summary><div class="abstract-body"></div></details>` : expanded === true ? "<p>这篇论文暂缺公开摘要。</p>" : ""}<div class="paper-actions">${safe ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(identifier)} ↗</a>` : ""}</div></article>`;
 }
 function paperPage(p) {
   const w = byId.get(p.get("id"));
   return w
-    ? `<div class="reading-page"><p class="reading-back"><a href="#library">← 文献概览</a></p>${paper(w, true)}${Object.hasOwn(readingIndex,w.id) ? `<section class="study-summary" aria-labelledby="study-heading" data-key="${esc(w.id)}" data-year="${esc(w.year)}"><h2 id="study-heading">文章总结</h2><div class="study-body"></div></section>` : ""}</div>`
+    ? `<div class="reading-page"><p class="reading-back"><a href="#library">← 文献概览</a></p>${paper(w, true)}${(summaryIndex[w.id]?.hasSummary || Object.hasOwn(readingIndex,w.id)) ? `<section class="study-summary" aria-labelledby="study-heading" data-key="${esc(w.id)}" data-year="${esc(w.year)}"><h2 id="study-heading">Summary</h2><div class="study-body"></div></section>` : ""}</div>`
     : '<p>没有找到这篇论文。<a href="#library">浏览文献</a></p>';
 }
 async function readDetail(node) {
@@ -111,6 +136,11 @@ async function showStudy(section) {
   const box=section.querySelector(".study-body");
   const {year,key}=section.dataset;
   try {
+    if (summaryIndex[key]?.hasSummary) {
+      const sections = (await get("summaries/" + year))[key].sections;
+      box.innerHTML = sections.map(s => `<section><h3>${esc(s.name)}</h3>${s.paragraphs.map(t=>`<p>${esc(t)}</p>`).join("")}</section>`).join("");
+      return;
+    }
     if (!readingYears.has(year)) readingYears.set(year,get("studies/"+year).catch(e=>{readingYears.delete(year);throw e;}));
     const note=(await readingYears.get(year))[key];
     if (!note) throw new Error("missing study");
@@ -275,7 +305,9 @@ function library(p, page = "library", pool = works) {
       (!p.get("quarter") || quarter(w) === p.get("quarter")) &&
       (!volume || (volume === "unknown" ? !w.volume : w.volume === volume)) &&
       (!p.get("issue") || w.issue === p.get("issue")) &&
-      (!p.get("topic") || w.topic === p.get("topic")) &&
+      (!p.get("topic") || topicsFor(w).includes(topicAliases.get(p.get("topic")) || p.get("topic")))
+      && (!p.get("technique") || labelsFor(w,"methods").includes(p.get("technique")))
+      && (!p.get("dataset") || labelsFor(w,"data").includes(p.get("dataset"))) &&
       (!(p.get("fulltext") || p.get("method")) || Object.hasOwn(readingIndex[w.id] || {}, p.get("fulltext") || p.get("method"))) &&
       (!p.get("region") || w.region === p.get("region")) &&
       (p.get("abstract") !== "yes" || w.hasAbstract) &&
@@ -342,8 +374,9 @@ function library(p, page = "library", pool = works) {
           p.get("issue"),
         )
       : "",
-    general ? select("topic", "全部主题", unique("topic"), p.get("topic")) : "",
-    select("fulltext", "全文标签", [...new Set(pool.flatMap(w => Object.keys(readingIndex[w.id] || {})))].sort(), p.get("fulltext") || p.get("method")),
+    select("topic", "研究主题", Object.values(taxonomy.topics).map(t => t.name), topicAliases.get(p.get("topic"))),
+    select("technique", "研究方法", Object.values(taxonomy.methods), p.get("technique")),
+    select("dataset", "数据类型", Object.values(taxonomy.data), p.get("dataset")),
     general
       ? select("region", "研究地点", unique("region"), p.get("region"))
       : "",
@@ -395,33 +428,17 @@ function library(p, page = "library", pool = works) {
 }
 function atlas() {
   const counts = new Map();
+  let covered = 0;
   for (const w of works) {
-    if (w.topic) counts.set(w.topic, (counts.get(w.topic) || 0) + 1);
+    const topics = topicsFor(w);
+    if (topics.length) covered++;
+    for (const name of topics) counts.set(name, (counts.get(name) || 0) + 1);
   }
-  const question = {
-    健康保险: "不同的人如何选择保障，谁会因价格放弃治疗？",
-    医疗供给: "医生、医院和支付方怎样共同决定服务？",
-    人口健康: "环境与制度怎样改变寿命和健康差距？",
-    药品与创新: "创新成本、定价和监管如何影响用药？",
-    预防与筛查: "谁从筛查、疫苗和预防投入中获益？",
-    器官配置: "稀缺器官如何在等待者之间分配？",
-    心理健康: "治疗与社会环境如何影响精神健康？",
-    长期照护: "家庭和护理机构怎样分担照护？",
-    社会保障: "收入保障如何应对疾病与失能？",
-    信息与决策: "信息披露如何影响选择和激励？",
-  };
-  return (
-    titleblock("研究问题", "研究主题", "选择感兴趣的问题，浏览相关论文。") +
-    cards(
-      Object.entries(question).map(([topic, desc]) => [
-        (counts.get(topic) || 0) + " 篇",
-        topic,
-        desc,
-        "library",
-        { topic },
-      ]),
-    )
-  );
+  return titleblock("研究问题", "研究主题",
+    `已有 ${fmt(covered)} 篇论文归入主题。同一篇论文可以回答几个问题。`) +
+    cards(Object.values(taxonomy.topics).map(({name,question}) => [
+      fmt(counts.get(name) || 0) + " 篇", name, question, "library", {topic:name}
+    ]));
 }
 function about() {
   return `<article class="about-page"><h1>关于 healthecon</h1>
@@ -474,6 +491,7 @@ function render() {
       next.delete("page");
       next.delete("focus");
       next.delete("method");
+      next.delete("fulltext");
       for (const [key, value] of new FormData(form))
         value ? next.set(key, value) : next.delete(key);
       if (form.elements.showNber) {
@@ -516,14 +534,14 @@ function render() {
     ex.onclick = () => {
       const text = exportRows
         .map((w) =>
-          [w.year, w.venue, w.titleZh, w.title, w.authors, w.id, w.topic, w.region]
+          [w.year, w.venue, w.titleZh, w.title, w.authors, w.id, topicsFor(w).join("、"), labelsFor(w,"methods").join("、"), labelsFor(w,"data").join("、"), w.region]
             .map((x) => String(x ?? "").replace(/[\t\r\n]/g, " "))
             .join("\t"),
         )
         .join("\r\n");
       const u = URL.createObjectURL(
         new Blob(
-          ["\uFEFF年份\t刊物\t中文题名\t原题\t作者\t标识\t主题\t国家或场景\r\n", text],
+          ["\uFEFF年份\t刊物\t中文题名\t原题\t作者\t标识\t主题\t方法\t数据\t国家或场景\r\n", text],
           { type: "text/tab-separated-values;charset=utf-8" },
         ),
       );
@@ -612,7 +630,7 @@ async function navigate() {
   if (!el.dataset.rendered || el.dataset.route !== route) el.innerHTML = loadingView(route);
   el.setAttribute("aria-busy", "true");
   try {
-    const [rows] = await Promise.all([catalogFor(route, params), needsStats && loadStats(), loadReadingIndex()]);
+    const [rows] = await Promise.all([catalogFor(route, params), needsStats && loadStats(), loadReadingIndex(), loadTaxonomy(), loadSummaries()]);
     if (ticket !== navigation) return;
     if (rows) {
       works = rows;
