@@ -171,14 +171,48 @@ ESSAY="""你为经济学研究者撰写能独立阅读的中文文章总结。�
 比较中，不写泛泛的“填补空白”。写成一篇连贯的长文，不写提纲、摘要、标题或标签。通常约1200–2000个汉字，
 复杂研究可以更长。不要为凑长度复述。每段末附上支持该段的原文片段号，形式 [E12,E24]。只能使用提供的证据。"""
 
-def essay(title,kind,parts,ids,opening_ids):
+def section_essay(title,kind,parts,chosen,workspace):
+    """Build a continuous essay from a paper-specific outline, retaining checked paragraphs on retry."""
+    plan_file=workspace/"essay-outline.json"
+    samples="\n".join(f"E{i} {parts[i-1][1][:490]}" for i in chosen)
+    if not plan_file.exists():
+        result=chat("根据论文原文设计一篇中文长总结的六个连续自然段。每段论述不同的具体命题。把作者回答的问题、相对于既有理解的贡献、采用的设计或模型、最重要的结果以及适用条件写进提纲。综述另按其综合论证组织。按证据选择各段主题。每段选择最多四个直接相关的原文编号。输出 JSON "+'{"plan":[{"focus":"具体命题","ids":[1,2]}]}。',title+"\n"+kind+"\n"+samples,1150,True)
+        plan=[]
+        for item in result.get("plan",[]):
+            if not isinstance(item,dict):continue
+            ids=[int(str(n).lstrip("E")) for n in item.get("ids",[]) if re.fullmatch(r"E?\d+",str(n)) and int(str(n).lstrip("E")) in chosen]
+            if ids and item.get("focus"):plan.append({"focus":item["focus"],"ids":list(dict.fromkeys(ids))[:4]})
+        if not 5<=len(plan)<=8:raise ValueError("文章提纲缺少足够的独立论点或出处")
+        write(plan_file,plan)
+    plan=json.loads(plan_file.read_text(encoding="utf8"))
+    paragraphs=[]
+    for j,item in enumerate(plan):
+        target=workspace/f"essay-paragraph-{j}.json"
+        if not target.exists():
+            proof="\n".join(parts[i-1][1] for i in item["ids"])
+            context=title+"\n"+kind+"\n全文行文顺序："+" / ".join(s["focus"] for s in plan)+"\n本段论点："+item["focus"]+"\n本段原文："+proof
+            correction=""
+            for attempt in range(4):
+                body=chat("写一段可以直接发表的中文经济学论文总结，约200至320汉字，一个自然段。基于所给英文材料论证本段主题，若论点与证据不符，以证据为准。交代足够的制度或经济含义。精确描述比较对象、数量和作者归属，不添加材料以外的事实。直接写正文，不写标题、不提任务、不列片段号。",context+correction,850).strip()
+                if len(re.findall("[一-龥]",body))<140 or "\n\n" in body or re.search(r"<think>|^#|我将|这段文字",body):continue
+                verdict=chat("逐项核实中文段落与英文证据是否相符，特别是作者归属、比较对象及数值。可接受合乎原意的转述。用中文简短回答。结构为 "+'{"supported":true,"issue":""} 或 {"supported":false,"issue":"引述有问题的词及如何据原文改正"}。',proof+"\n待核段落："+body,340,True)
+                if verdict.get("supported") is True:
+                    write(target,{"text":body,"pages":sorted({parts[i-1][0] for i in item["ids"]})})
+                    break
+                correction="\n上一版段落："+body+"\n请针对这一意见按原文改写："+str(verdict.get("issue",""))
+            if not target.exists():raise ValueError(f"第 {j+1} 段尚未通过原文核对")
+        paragraphs.append(json.loads(target.read_text(encoding="utf8")))
+    if sum(len(re.findall("[一-龥]",p["text"])) for p in paragraphs)<850:raise ValueError("文章总结篇幅不足")
+    return paragraphs
+
+def essay(title,kind,parts,ids,opening_ids,workspace):
     chosen=list(dict.fromkeys(opening_ids+ids))
     # Keep paper openings and evidence spanning the entire manuscript in each context.
     if len(chosen)>54:chosen=list(dict.fromkeys(spread(opening_ids,16)+spread(ids,38)))
     docs="\n".join(f"E{i} {parts[i-1][1][:720]}" for i in chosen)
     accepted=None
     feedback=""
-    for attempt in range(4):
+    for attempt in range(2):
         prompt=ESSAY+("\n上次结果未通过格式检查。至少写五个充分展开的段落，每段末使用给出的编号如 [E3,E9]，一段一行。" if attempt else "")
         try:answer=chat(prompt,title+"\n"+kind+"\n"+docs+feedback,4200)
         except OverflowError:
@@ -201,7 +235,7 @@ def essay(title,kind,parts,ids,opening_ids):
                 for start in range(0,len(paragraphs),3):
                     group=paragraphs[start:start+3]
                     packet="\n".join(p["text"]+"\n"+"\n".join(parts[i-1][1] for i in dict.fromkeys(p["refs"])) for p in group)
-                    check=chat("逐段审核论文总结与紧随其后的英文出处。只报告改变结论的具体错误，特别是把被引研究当本文设计、"
+                    check=chat("逐段审核论文总结与紧随其后的英文出处。只报告改变结论的具体错误，每段最多列出两项，每项限一句。特别是把被引研究当本文设计、"
                                "比较组或分母错误、把数量写成比例、虚构贡献、把相关写成因果。若证据不支持段落中的具体主张，也指出该主张。"
                                '返回 {"errors":[]} 或 {"errors":["具体有问题的断言和修改意见"]}。',title+"\n"+packet,650,True)
                     if not isinstance(check.get("errors"),list):raise ValueError("证据复核结果不完整")
@@ -211,8 +245,7 @@ def essay(title,kind,parts,ids,opening_ids):
                     continue
                 accepted=[{k:p[k] for k in ("text","pages")} for p in paragraphs]
                 break
-    if not accepted:raise ValueError("长总结的篇幅、结构或逐段出处未通过检查")
-    return accepted
+    return accepted or section_essay(title,kind,parts,chosen,workspace)
 
 def produce(w,vault,workspace):
     doi=w["id"];sha=w["sha"];fingerprint=key(doi,sha)
@@ -247,6 +280,12 @@ def produce(w,vault,workspace):
     tagfile=scratch/"attribution.json"
     if not tagfile.exists():write(tagfile,verified_tags(w["title"],kind,parts,candidates,opening))
     verified=json.loads(tagfile.read_text(encoding="utf8"))
-    paragraphs=essay(w["title"],kind,parts,useful,spread(opening_ids,18))
+    start_ids=spread(opening_ids,18)
+    try:
+        paragraphs=essay(w["title"],kind,parts,useful,start_ids,scratch) if not (scratch/"essay-outline.json").exists() else None
+    except (ValueError,OverflowError):
+        paragraphs=None
+    if not paragraphs:
+        paragraphs=section_essay(w["title"],kind,parts,list(dict.fromkeys(spread(start_ids,16)+spread(useful,38))),scratch)
     write(target,dict(id=doi,sha=sha,pipelineVersion=FORMAT,version=w["version"],unit=unit,kind=kind,credit="本地模型据全文整理",
          paragraphs=paragraphs,tagEvidence={LABELS[k]:{a:v[a] for a in ("pages","reason")} for k,v in verified.items()}))
