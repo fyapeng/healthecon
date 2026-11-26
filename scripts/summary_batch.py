@@ -17,7 +17,8 @@ from corpus_readings import ANCHORS, compact, main_text, source_units
 from import_catalog import write
 from study_release import catalogue, key
 from study_fulltext import own_declarations, segments
-from summary_sections import pdf_sections, xml_sections
+from summary_sections import machine_sections, xml_sections
+from pdf_text_cache import cached_pages
 from summary_release import release
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -134,23 +135,32 @@ def process_all(args,worker):
         if not (folder/'source.json').exists():write(folder/'source.json',dict(id=doi,sha=w['sha'],year=w['year']))
         try:
             if hashlib.sha256(path.read_bytes()).hexdigest()!=w['sha']:raise ValueError('全文版本已变')
+            is_pdf=path.suffix.lower()=='.pdf'
+            units,meta=cached_pages(vault,path,w['sha']) if is_pdf else (None,None)
+            work=folder/'pdf-pages-3'/meta['textHash'] if is_pdf else folder
+            work.mkdir(parents=True,exist_ok=True)
+            sections=None
             for task in ('tags','summary'):
-                target=folder/(task+'.json')
+                target=work/(task+'.json')
                 if target.exists():continue
                 start=time.monotonic()
                 try:
                     if task=='tags':
-                        units,unit=source_units(path)
+                        if is_pdf:unit='页'
+                        else:units,unit=source_units(path)
                         result=dict(evidence=worker.tags(w['title'],units),unit=unit)
                     else:
-                        sections=(pdf_sections if path.suffix.lower()=='.pdf' else xml_sections)(path)
+                        sections=machine_sections(path,units) if is_pdf else xml_sections(path)
+                        # Reuse exact paragraph translations from the previous run.
                         result=dict(sections=worker.summarize(sections,folder/'paragraphs'))
                     write(target,dict(**result,seconds=round(time.monotonic()-start,2)))
-                    logging.info('%s %s %.1fs',doi,task,time.monotonic()-start)
+                    logging.info('%s %s %.1fs %s',doi,task,time.monotonic()-start,'分页文本' if is_pdf else 'XML')
                 except (ValueError,requests.RequestException,RuntimeError) as err:
                     logging.warning('%s %s %s',doi,task,err)
-                    write(folder/(task+'-待核.json'),dict(reason=str(err)))
-            release(worker,w,path,folder,ROOT/'data',LABELS)
+                    write(work/(task+'-待核.json'),dict(reason=str(err)))
+            if is_pdf and sections is None and (work/'summary.json').exists():
+                sections=machine_sections(path,units)
+            release(worker,w,path,work,ROOT/'data',LABELS,sections,units if is_pdf else None)
         except Exception:logging.exception('%s',doi)
 
 def main():

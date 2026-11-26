@@ -29,32 +29,40 @@ def aligned_pdf(path,sections):
             return len(sections)==1 and .76<=len(selected)/max(1,len(observed))<=1.12
     return False
 
-def text_boundaries(path, sections):
+def text_boundaries(path, sections, pages=None):
     """Compare each extracted section against a second plain-text rendering."""
-    with pymupdf.open(path) as doc:
-        text="\n".join(page.get_text("text",sort=True) for page in doc)
+    if pages is None:
+        with pymupdf.open(path) as doc:
+            text="\n".join(page.get_text("text",sort=True) for page in doc)
+    else:
+        # The caption, chart labels and trailing notes are absent from the narrative.
+        # Remove a caption-to-notes span only within the same physical page.
+        cap=re.compile(r"(?ms)^(?:Figure|Table) [\d.]+[:.] [^\n]+\n.*?^Notes?:[^\n]*(?:\n(?!\s*\n)[^\n]+)*")
+        text="\n".join(cap.sub("",p) for p in pages)
     letters=[];offset=[]
     for i,c in enumerate(text.lower()):
         if c.isascii() and c.isalpha():letters.append(c);offset.append(i)
     plain="".join(letters)
-    headings={"引言":r"introduction|abstract","结论":r"conclu(?:sions?|ding)|discussion","相关研究":r"literature|previous studies|related (?:work|research)"}
+    headings={"引言":r"introduction|abstract|\bJEL\b","结论":r"conclu(?:sions?|ding)|discussion","讨论":r"discussion","相关研究":r"literature|previous (?:studies|research)|related (?:work|research)"}
     for title,ps in sections:
         value=re.sub("[^a-z]",""," ".join(ps).lower())
         if len(value)<140:return False
-        start=plain.find(value[:65]);end=plain.find(value[-65:],max(0,start+65))
-        if start<0 or end<0:return False
-        stop=end+65
-        if not .84<=len(value)/(stop-start)<=1.09:return False
-        a=offset[start];b=offset[stop-1]+1
-        if not re.search(headings[title],text[max(0,a-440):a],re.I):return False
-        # A folio may precede the next heading, but ordinary continuation prose cannot.
-        tail=text[b:b+1200].strip(" .:;\t\r\n")
-        next_lines=[line.strip() for line in tail.splitlines() if line.strip() and not re.fullmatch(r"\d{1,3}",line.strip())]
-        if not next_lines:continue
-        if not re.match(r"^(?:(?:[IVX]+|\d+(?:\.\d+)*)[.)]?\s+)?(?:[A-Z][A-Za-z ,:&–-]{1,85}|[A-Z][A-Za-z ,:&–-]{1,65}\.)$",next_lines[0]):return False
+        matches=False
+        for hit in re.finditer(re.escape(value[:65]),plain):
+            start=hit.start();end=plain.find(value[-65:],start+65)
+            if end<0:continue
+            stop=end+65
+            if not .84<=len(value)/(stop-start)<=1.09:continue
+            a=offset[start];b=offset[stop-1]+1
+            if not re.search(headings[title],text[max(0,a-440):a],re.I):continue
+            tail=text[b:b+1200].strip(" .:;\t\r\n")
+            lines=[line.strip() for line in tail.splitlines() if line.strip() and not re.fullmatch(r"\d{1,3}",line.strip())]
+            if lines and not (re.match(r"^(?:(?:[IVX]+|\d+(?:\.\d+)*)[.)]?\s+)?[A-Z][A-Za-z ,:&–-]{1,85}\.?$",lines[0]) or (title in {"讨论","结论"} and re.match(r"^(?:Table|Appendix) [A-Z0-9]+[.:]",lines[0]))):continue
+            matches=True;break
+        if not matches:return False
     return True
 
-def release(worker,w,path,folder,site,labels):
+def release(worker,w,path,folder,site,labels,sections=None,pages=None):
     if w["id"] in SEEDS:return
     dest=site/"summaries"
     idx=json.loads((dest/"index.json").read_text(encoding="utf8"))
@@ -64,15 +72,16 @@ def release(worker,w,path,folder,site,labels):
         record=json.loads(tags.read_text(encoding="utf8"))
         entry["tags"]=[labels[e["code"]] for e in record["evidence"]]
     summary=folder/"summary.json"
-    if summary.is_file() and not entry.get("hasSummary"):
+    if summary.is_file() and (not entry.get("hasSummary") or (pages is not None and not (folder/"已更新").exists())):
         verdict_file=folder/"译文核对.json"
         if not verdict_file.is_file() or (json.loads(verdict_file.read_text(encoding="utf8")).get("status")=="章节边界待核" and "boundaryVersion" not in json.loads(verdict_file.read_text(encoding="utf8"))):
-            source=(pdf_sections if path.suffix.lower()==".pdf" else xml_sections)(path)
+            source=sections or (pdf_sections if path.suffix.lower()==".pdf" else xml_sections)(path)
             result=json.loads(summary.read_text(encoding="utf8"))["sections"]
             if len(result)!=len(source) or any(s["name"]!=k or len(s["paragraphs"])!=len(ps) for s,(k,ps) in zip(result,source)):raise ValueError("章节结构需要复核")
             import time
             started=time.monotonic()
-            if path.suffix.lower()==".pdf" and not (aligned_pdf(path,source) or text_boundaries(path,source)):status="章节边界待核"
+            if any(re.search(r"[\x80-\x9f\ufffd]",t) for _,ps in source for t in ps):status="原文存在乱码待核"
+            elif path.suffix.lower()==".pdf" and not (aligned_pdf(path,source) or text_boundaries(path,source,pages)):status="章节边界待核"
             else:
                 pairs=[(en,zh) for s,(_,ps) in zip(result,source) for en,zh in zip(ps,s["paragraphs"])]
                 def check(pair):
@@ -88,3 +97,5 @@ def release(worker,w,path,folder,site,labels):
             write(year,books);entry["hasSummary"]=True
     if entry:
         idx[w["id"]]=entry;write(dest/"index.json",idx)
+        if pages is not None and (folder/"译文核对.json").exists() and json.loads((folder/"译文核对.json").read_text(encoding="utf8"))["status"]=="通过":
+            (folder/"已更新").touch()
