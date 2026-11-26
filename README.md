@@ -27,4 +27,6 @@ HE 的卷期缓存使用相同命令，指定 `--issn 1057-9230`，文件名为 
 
 首页雨夜照片按展示构图提供三档 WebP 尺寸，图注链接到完整馆藏照片。界面拉丁字符使用本地托管的 [Source Sans 3](https://github.com/adobe-fonts/source-sans)，拉丁子集由 [Fontsource](https://fontsource.org/fonts/source-sans-3) 分发，授权见 [OFL](assets/fonts/OFL.txt)。
 
-全文标签使用本地 PDF。启动 Qwen3-4B-Instruct-2507 的 llama.cpp 服务（127.0.0.1:18246，每个并发请求 8192 tokens）后，运行 `python scripts/tag_fulltext.py DOI PDF路径`，可以在 `private/fulltext` 中取得逐页解析和按原句核对的模型候选。同一命令加 `--download-if-missing` 可从 NBER 获取指定工作论文到目标路径。核对正文后，将选定版本的文件哈希、总页数、标签及支持页码写入 `data/fulltext-tags.json`，再重建索引。PDF、原句和未采纳的候选留在本地。
+论文卡片可展开中英文摘要。已有文章总结的论文，点击标题可以独立阅读长总结，并核对每段和各标签所对应的正文页码。作者使用的资料与方法按本篇论文判定。综述中列举的其他研究保留在行文中。空缺标签表示尚无确认依据。
+
+全文处理在馆藏所在电脑上运行。每次更新先用四篇有已知答案的论文测试方法归属和文体，再按 DOI、正文文件指纹和处理版本续跑。每篇长总结在发布前按段回查出处。新文献、修订版与失败记录可重新处理。负责发布的目录为 `data/studies/`。馆藏 PDF、逐字引文和提取过程均保存在本机。

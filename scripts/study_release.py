@@ -6,9 +6,16 @@ from pathlib import Path
 from collections import defaultdict
 from fulltext_tags import LABELS
 from import_catalog import write
+FORMAT="long-study-attribution-2"
 
 def key(doi,sha):
     return hashlib.sha256((doi+sha).encode()).hexdigest()
+
+def current_note(f,doi,sha):
+    if not f.exists():return False
+    record=json.loads(f.read_text(encoding="utf8"))
+    return (record.get("id"),record.get("sha"))==(doi,sha) and (
+        record.get("pipelineVersion")==FORMAT or record.get("credit")=="据全文整理，已逐段核对")
 
 def catalogue(vault,data):
     registry={w["id"]:w for group in ("top5","nber","other")
@@ -24,7 +31,7 @@ def snapshot(vault,data,dest):
     idx={}
     for i,w in registry.items():
         f=vault/"管理"/"文章长总结"/(key(i,w["sha"])+".json")
-        if not f.exists():continue
+        if not current_note(f,i,w["sha"]):continue
         note=json.loads(f.read_text(encoding="utf8"))
         assert (note["id"],note["sha"])==(i,w["sha"])
         assert set(note["tagEvidence"])<=set(LABELS.values())

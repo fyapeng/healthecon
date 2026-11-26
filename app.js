@@ -276,8 +276,7 @@ function library(p, page = "library", pool = works) {
       (!volume || (volume === "unknown" ? !w.volume : w.volume === volume)) &&
       (!p.get("issue") || w.issue === p.get("issue")) &&
       (!p.get("topic") || w.topic === p.get("topic")) &&
-      (!p.get("method") || w.methodMentions?.includes(p.get("method"))) &&
-      (!p.get("fulltext") || Object.hasOwn(readingIndex[w.id] || {}, p.get("fulltext"))) &&
+      (!(p.get("fulltext") || p.get("method")) || Object.hasOwn(readingIndex[w.id] || {}, p.get("fulltext") || p.get("method"))) &&
       (!p.get("region") || w.region === p.get("region")) &&
       (p.get("abstract") !== "yes" || w.hasAbstract) &&
       (p.get("abstract") !== "no" || !w.hasAbstract) &&
@@ -344,17 +343,9 @@ function library(p, page = "library", pool = works) {
         )
       : "",
     general ? select("topic", "全部主题", unique("topic"), p.get("topic")) : "",
-    select("fulltext", "全文标签", [...new Set(pool.flatMap(w => [...Object.keys(readingIndex[w.id] || {})]))].sort(), p.get("fulltext")),
+    select("fulltext", "全文标签", [...new Set(pool.flatMap(w => Object.keys(readingIndex[w.id] || {})))].sort(), p.get("fulltext") || p.get("method")),
     general
       ? select("region", "研究地点", unique("region"), p.get("region"))
-      : "",
-    general
-      ? select(
-          "method",
-          "摘要提及的方法",
-          [...new Set(pool.flatMap((w) => w.methodMentions || []))].sort(),
-          p.get("method"),
-        )
       : "",
     general
       ? '<select name="scope" aria-label="目录范围"><option value="">健康研究目录</option><option value="all" ' +
@@ -482,6 +473,7 @@ function render() {
       const next = new URLSearchParams(p);
       next.delete("page");
       next.delete("focus");
+      next.delete("method");
       for (const [key, value] of new FormData(form))
         value ? next.set(key, value) : next.delete(key);
       if (form.elements.showNber) {
