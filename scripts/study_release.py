@@ -17,6 +17,15 @@ def current_note(f,doi,sha):
     return (record.get("id"),record.get("sha"))==(doi,sha) and (
         record.get("pipelineVersion")==FORMAT or record.get("credit")=="据全文整理，已逐段核对")
 
+def ready_for_site(note):
+    # The local writer has also passed its own fact check on demonstrably false
+    # claims. An independent check of this exact text and tag set is required.
+    if note.get("credit")=="据全文整理，已逐段核对":return True
+    body=[note[k] for k in ("id","sha","kind","paragraphs","tagEvidence")]
+    digest=hashlib.sha256(json.dumps(body,ensure_ascii=False,sort_keys=True).encode()).hexdigest()
+    approval=note.get("independentReview",{})
+    return approval.get("sourceMatched") is True and approval.get("digest")==digest
+
 def catalogue(vault,data):
     registry={w["id"]:w for group in ("top5","nber","other")
               for w in json.loads((data/"index"/(group+".json")).read_text(encoding="utf8"))}
@@ -33,6 +42,7 @@ def snapshot(vault,data,dest):
         f=vault/"管理"/"文章长总结"/(key(i,w["sha"])+".json")
         if not current_note(f,i,w["sha"]):continue
         note=json.loads(f.read_text(encoding="utf8"))
+        if not ready_for_site(note):continue
         assert (note["id"],note["sha"])==(i,w["sha"])
         assert set(note["tagEvidence"])<=set(LABELS.values())
         assert len(note["paragraphs"])>=4 and sum(len(p["text"]) for p in note["paragraphs"])>=850
