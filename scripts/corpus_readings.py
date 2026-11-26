@@ -67,7 +67,7 @@ def source_units(path):
             for page in doc:
                 raw = page.get_text(sort=True)
                 # Broken PDF font maps can emit punctuation instead of prose even on vector pages.
-                broken_font=(len(raw)>700 and len(re.findall(r"[@&*+%#$!]",raw))>len(raw)*0.09
+                broken_font=(len(raw)>700 and len(re.findall(r"[^A-Za-z0-9\s.,:;()\-]",raw))>len(raw)*0.09
                              and not re.search(r"\b(?:the|from|with|of|and)\b",raw,re.I))
                 if broken_font or len(re.findall(r"[A-Za-z]",raw)) < 70 and page.get_images():
                     engine=shutil.which("tesseract") or "C:/Program Files/Tesseract-OCR/tesseract.exe"
