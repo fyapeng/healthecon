@@ -40,6 +40,7 @@ ANCHORS = {
     "policy": r"regulat|reform|polic(?:y|ies)|law |mandate|statutory|subsid(?:y|ies)|tax (?:increase|on)",
 }
 REFERENCE = re.compile(r"(?im)^\s*(?:\d+[.)]?\s+)?(?:References|Bibliography|Literature cited)\s*$")
+CONTEXT_ERROR = "exceeds the available context"
 INTRO = re.compile(r"(?im)^\s*(?:(?:I|1)[.)]?\s+)?Introduction(?:\s+and\s+(?:background|overview))?[.:]?\s*$")
 NEXT = re.compile(r"(?im)^\s*(?:II[.:]?\s+|2[.)]?\s+)[A-Z][A-Za-z ,:&–-]{2,75}\s*$")
 
@@ -65,7 +66,10 @@ def source_units(path):
             units = []
             for page in doc:
                 raw = page.get_text(sort=True)
-                if len(re.findall(r"[A-Za-z]",raw)) < 70 and page.get_images():
+                # Broken PDF font maps can emit punctuation instead of prose even on vector pages.
+                broken_font=(len(raw)>700 and len(re.findall(r"[@&*+%#$!]",raw))>len(raw)*0.09
+                             and not re.search(r"\b(?:the|from|with|of|and)\b",raw,re.I))
+                if broken_font or len(re.findall(r"[A-Za-z]",raw)) < 70 and page.get_images():
                     engine=shutil.which("tesseract") or "C:/Program Files/Tesseract-OCR/tesseract.exe"
                     if Path(engine).is_file():
                         image=page.get_pixmap(dpi=150,alpha=False).tobytes("png")
@@ -129,6 +133,8 @@ def ask(system, source, tokens, schema):
     for attempt in range(3):
         try:
             response=requests.post(ENDPOINT,json=payload,timeout=(8,400))
+            if response.status_code==400 and CONTEXT_ERROR in response.text:
+                raise OverflowError("片段超过本地模型上下文")
             response.raise_for_status()
             result=response.json()["choices"][0]
             if result["finish_reason"] != "stop":
@@ -169,7 +175,13 @@ def index_batch(batch):
     schema={"type":"object","required":["important","tags"],"additionalProperties":False,
         "properties":{"important":{"type":"array","maxItems":5,"items":number},
             "tags":{"type":"object","additionalProperties":False,"properties":{k:number for k in LABELS}}}}
-    data=ask(MAP,document,480,schema)
+    try:
+        data=ask(MAP,document,480,schema)
+    except OverflowError:
+        if len(batch)<2:raise
+        middle=len(batch)//2
+        a,b=index_batch(batch[:middle]),index_batch(batch[middle:])
+        return {k:a[k]+b[k] for k in ("claims","labels")}
     if not isinstance(data.get("important"),list) or not isinstance(data.get("tags"),dict):
         raise ValueError("片段证据结构不完整")
     def passage(i):
@@ -205,7 +217,13 @@ def read_one(r, vault, folder):
             result=index_batch(batch)
             write(out,result)
         labels.extend(result["labels"]);claims.extend(result["claims"])
-    if not claims:raise ValueError("缺少能定位到正文的总结依据")
+    if not claims:
+        # An empty model selection is possible even in a short paper. Pass genuine page
+        # passages from its beginning, middle and conclusion to the synthesis model.
+        for n,raw in enumerate(body,1):
+            passages=[s for s in re.split(r"(?<=[.!?])\s+(?=[A-Z])",compact(raw)) if 85<=len(s)<=1200 and re.search(r"\b(?:we|our|paper|results|study|method|data|software)\b",s,re.I)]
+            claims.extend({"unit":n,"quote":s} for s in passages[:2])
+        if not claims:raise ValueError("缺少能定位到正文的总结依据")
     material="\n".join(f"[{x['unit']}] {x['quote']}" for x in claims)
     # Preserve first and last sections of exceptionally long papers within the context window.
     if len(material)>20000:material=material[:10000]+"\n"+material[-10000:]
@@ -228,6 +246,10 @@ def read_one(r, vault, folder):
                       "confirmed":{"type":"array","maxItems":12,"items":{"type":"string","enum":list(LABELS)}}}}
     summary=ask(instructions,r["title"]+"\nOpening pages:\n"+synopsis+"\n"+("引言节选："+intro[:6500]+"\n" if intro else "")+material+"\nCandidate labels and evidence:\n"+candidate_text,1050,schema)
     paras=clean_paragraphs(summary.get("paragraphs"))
+    if not paras:
+        instructions+="\n请直接用中文写两个完整自然段，每段至少一百字。两个段落分别介绍问题与方法、主要结果与局限。正文不要写标签。"
+        summary=ask(instructions,r["title"]+"\n"+synopsis+"\n"+material[:12000]+"\n"+candidate_text,1250,schema)
+        paras=clean_paragraphs(summary.get("paragraphs"))
     if not (isinstance(paras,list) and 1<=len(paras)<=6 and all(isinstance(p,str) for p in paras)
             and len(re.findall(r"[\u3400-\u9fff]", "".join(paras)))>=120):
         raise ValueError("中文导读不完整")
