@@ -821,6 +821,12 @@ summary {
   line-height: 1.85;
 }
 .reading-page .abstract-body p[lang=en] { line-height: 1.65; }
+.study-summary { max-width:744px; margin:2.3rem auto 4rem; border-top:1px solid var(--line); }
+.study-summary h2 { font-size:clamp(1.5rem,3vw,2rem); margin:1.4rem 0 .6rem; }
+.study-body > p:not(.meta) { font-size:clamp(1rem,1.3vw,1.15rem); line-height:1.95; margin:1.15em 0; }
+.study-loc { color:var(--muted); font-size:.72em; white-space:normal; }
+.study-body details { margin-top:1.8rem; }
+.study-body li { margin:.5rem 0; }
 .sr-only {
   position: absolute;
   width: 1px;

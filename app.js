@@ -16,7 +16,7 @@ const detailCache = new Map();
 const readingYears = new Map();
 let readingIndex = {}, readingRequest;
 function loadReadingIndex() {
-  return readingRequest ||= get("readings/index").then(index => { readingIndex = index; })
+  return readingRequest ||= get("studies/index").then(index => { readingIndex = index; })
     .catch(() => { readingRequest = undefined; });
 }
 const readingVersions = {workingPaper:"工作论文版",acceptedVersion:"作者定稿",submittedVersion:"投稿稿",preprint:"预印本",publishedVersion:"期刊发表版",publisherCopy:"出版社版本",repositoryFullText:"机构库版本",localCopy:"本地核对版本",openCopy:"公开版本"};
@@ -46,25 +46,22 @@ function paper(w, expanded = false) {
   const url = w.id.startsWith("10.") ? "https://doi.org/" + w.id : w.id;
   const safe = /^https:\/\/(doi\.org|openalex\.org|arxiv\.org)\//i.test(url);
   const identifier = w.id.startsWith("10.") ? "DOI · " + w.id : "书目标识";
-  const verified = Object.entries(w.fulltextTags || {});
-  const modelTags = Object.entries(readingIndex[w.id] || {}).filter(([label]) => !Object.hasOwn(w.fulltextTags || {}, label));
-  const badges = verified.map(([label, pages]) =>
-    `<span title="已核对全文 · PDF 第 ${esc(pages.join("、"))} 页">${esc(label)}</span>`
-  ).concat(modelTags.map(([label]) => `<span title="本地模型据正文识别">${esc(label)}</span>`)).join("");
+  const badges = Object.entries(readingIndex[w.id] || {}).map(([label]) =>
+    `<span title="论文正文依据见详情页">${esc(label)}</span>`).join("");
   return `<article class="paper"><div class="meta">${esc(w.date || w.year)} · ${esc(w.venue)}${w.volume ? " · 卷 " + esc(w.volume) : ""}${w.issue ? " · 第 " + esc(w.issue) + " 期" : ""}${w.set === "本年在线" ? " · 提前在线" : ""}${w.articleType ? " · " + esc(w.articleType) : ""}</div><${expanded ? "h1" : "h3"}>${expanded ? esc(w.titleZh || w.title) : `<a href="${esc(internal)}">${esc(w.titleZh || w.title)}</a>`}</${expanded ? "h1" : "h3"}>${w.titleZh ? `<p lang="en">${esc(w.title)}</p>` : ""}${w.question ? `<p>${esc(w.question)}</p>` : ""}<div class="meta">${esc((w.authors || "").replaceAll(" | ", ", "))}</div>${[
-    w.fulltextTags?.[w.topic] ? "" : w.topic,
+    readingIndex[w.id]?.[w.topic] ? "" : w.topic,
     w.region,
   ]
     .filter((x) => x && x !== "待核")
     .map((x) => `<span class="tag">${esc(x)}</span>`)
     .join(
       "",
-    )}${badges ? `<div class="paper-tags" role="group" aria-label="已核对全文的标签">${badges}</div>` : ""}${(w.hasDetail || Object.hasOwn(readingIndex,w.id)) ? `<details class="paper-detail" data-year="${esc(w.year)}" data-key="${esc(w.id)}" ${expanded === true ? "open" : ""}><summary>${w.hasAbstract ? "阅读摘要" : "论文信息"}</summary><div class="abstract-body"></div></details>` : expanded === true ? "<p>这篇论文暂缺公开摘要。</p>" : ""}<div class="paper-actions">${safe ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(identifier)} ↗</a>` : ""}</div></article>`;
+    )}${badges ? `<div class="paper-tags" role="group" aria-label="已核对全文的标签">${badges}</div>` : ""}${(w.hasDetail || Object.hasOwn(readingIndex,w.id)) ? `<details class="paper-detail" data-year="${esc(w.year)}" data-key="${esc(w.id)}" ${expanded === true && !Object.hasOwn(readingIndex,w.id) ? "open" : ""}><summary>${w.hasAbstract ? "阅读摘要" : "论文信息"}</summary><div class="abstract-body"></div></details>` : expanded === true ? "<p>这篇论文暂缺公开摘要。</p>" : ""}<div class="paper-actions">${safe ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(identifier)} ↗</a>` : ""}</div></article>`;
 }
 function paperPage(p) {
   const w = byId.get(p.get("id"));
   return w
-    ? `<div class="reading-page"><p class="reading-back"><a href="#library">← 文献概览</a></p>${paper(w, true)}</div>`
+    ? `<div class="reading-page"><p class="reading-back"><a href="#library">← 文献概览</a></p>${paper(w, true)}${Object.hasOwn(readingIndex,w.id) ? `<section class="study-summary" aria-labelledby="study-heading" data-key="${esc(w.id)}" data-year="${esc(w.year)}"><h2 id="study-heading">文章总结</h2><div class="study-body"></div></section>` : ""}</div>`
     : '<p>没有找到这篇论文。<a href="#library">浏览文献</a></p>';
 }
 async function readDetail(node) {
@@ -96,21 +93,10 @@ async function readDetail(node) {
       (a
         ? `<strong>${esc(a.version === "工作论文" ? "工作论文摘要" : a.version === "预印本" ? "预印本摘要" : "原文摘要")}</strong><p lang="en">${esc(a.text)}</p><small class="meta">摘要来源 · ${esc(abstractSource(a.source))}</small>`
         : "<p>这篇论文暂缺公开摘要。</p>") +
-      (byId.get(node.dataset.key)?.methodMentions
-        ? `<p class="meta">摘要提及的方法 · ${esc(byId.get(node.dataset.key).methodMentions.join(" · "))}</p>`
-        : "") +
       (entry.jel?.length
         ? `<p class="meta">JEL · ${esc(entry.jel.join(" · "))}</p>`
         : "") +
       (links.length ? `<div class="paper-actions">${links.join(" ")}</div>` : "");
-    if (Object.hasOwn(readingIndex,node.dataset.key)) {
-      if (!readingYears.has(year)) readingYears.set(year,get("readings/"+year).catch(e=>{readingYears.delete(year);throw e;}));
-      const note=(await readingYears.get(year))[node.dataset.key];
-      if (note) {
-        const locs=Object.entries(readingIndex[node.dataset.key]).map(([label,nums])=>esc(label)+" · 第 "+esc(nums.join("、"))+" "+esc(note.unit)).join("　");
-        box.insertAdjacentHTML("beforeend",`<section class="research-note"><h3>中文导读</h3><small class="meta">${esc(readingVersions[note.version] || "馆藏全文")} · 本地模型据${esc(note.basis)}整理</small>${note.paragraphs.map(t=>"<p>"+esc(t)+"</p>").join("")}${locs ? "<details><summary>全文标签出处</summary><small>"+locs+"</small></details>" : ""}</section>`);
-      }
-    }
     node.dataset.ready = "1";
   } catch {
     delete node.dataset.ready;
@@ -119,6 +105,23 @@ async function readDetail(node) {
     retry.textContent = "重试";
     retry.onclick = () => readDetail(node);
     box.append(retry);
+  }
+}
+async function showStudy(section) {
+  const box=section.querySelector(".study-body");
+  const {year,key}=section.dataset;
+  try {
+    if (!readingYears.has(year)) readingYears.set(year,get("studies/"+year).catch(e=>{readingYears.delete(year);throw e;}));
+    const note=(await readingYears.get(year))[key];
+    if (!note) throw new Error("missing study");
+    const pages=Object.entries(note.tagEvidence).map(([label,item])=>
+      `<li><b>${esc(label)}</b>　${esc(item.reason)} <small>（第 ${esc(item.pages.join("、"))} ${esc(note.unit)}）</small></li>`).join("");
+    box.innerHTML=`<p class="meta">${esc(note.kind)} · ${esc(readingVersions[note.version] || "馆藏全文")} · ${esc(note.credit)}</p>`+
+      note.paragraphs.map(p=>`<p>${esc(p.text)} <small class="study-loc">〔${esc(note.unit)} ${esc(p.pages.join("、"))}〕</small></p>`).join("")+
+      (pages ? `<details><summary>标签依据</summary><ul>${pages}</ul></details>` : "");
+  } catch {
+    box.textContent="文章总结暂时无法载入。 ";
+    const retry=document.createElement("button"); retry.textContent="重试"; retry.onclick=()=>showStudy(section); box.append(retry);
   }
 }
 function cards(items) {
@@ -274,7 +277,7 @@ function library(p, page = "library", pool = works) {
       (!p.get("issue") || w.issue === p.get("issue")) &&
       (!p.get("topic") || w.topic === p.get("topic")) &&
       (!p.get("method") || w.methodMentions?.includes(p.get("method"))) &&
-      (!p.get("fulltext") || Object.hasOwn(w.fulltextTags || {}, p.get("fulltext")) || Object.hasOwn(readingIndex[w.id] || {}, p.get("fulltext"))) &&
+      (!p.get("fulltext") || Object.hasOwn(readingIndex[w.id] || {}, p.get("fulltext"))) &&
       (!p.get("region") || w.region === p.get("region")) &&
       (p.get("abstract") !== "yes" || w.hasAbstract) &&
       (p.get("abstract") !== "no" || !w.hasAbstract) &&
@@ -341,7 +344,7 @@ function library(p, page = "library", pool = works) {
         )
       : "",
     general ? select("topic", "全部主题", unique("topic"), p.get("topic")) : "",
-    select("fulltext", "全文标签", [...new Set(pool.flatMap(w => [...Object.keys(w.fulltextTags || {}), ...Object.keys(readingIndex[w.id] || {})]))].sort(), p.get("fulltext")),
+    select("fulltext", "全文标签", [...new Set(pool.flatMap(w => [...Object.keys(readingIndex[w.id] || {})]))].sort(), p.get("fulltext")),
     general
       ? select("region", "研究地点", unique("region"), p.get("region"))
       : "",
@@ -468,6 +471,8 @@ function render() {
       a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   });
+  const study=el.querySelector(".study-summary");
+  if (study) showStudy(study);
   for (const node of el.querySelectorAll(".paper-detail")) {
     node.addEventListener("toggle", () => readDetail(node));
     if (node.open) readDetail(node);
