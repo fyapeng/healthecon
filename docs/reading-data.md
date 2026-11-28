@@ -1,6 +1,14 @@
 # 前端读取数据
 
-所有文件相对于站点根目录，无需登录。当前为截至 2026-11-24 的静态快照。日期字符串保持 ISO 顺序；记录标识按原值精确匹配，用 URLSearchParams 构造深链接。
+在线页面和[关于页的当前篇数](https://fyapeng.com/healthecon/#about)读取同一套按月发布的数据。首页 HTML 中的 `healthecon-public-data` 指向该版公开数据的根目录。
+ 
+- `archive-stats.json` 的 `summary.regular` 是五大刊卷期研究论文数，`summary.top5` 包含另外收录的提前在线论文和讲座、评论。各类篇数可从五大刊栏目分别点入清单。
+- `catalog/top5.json`、`catalog/nber.json` 和 `catalog/other.json` 合起来是健康研究目录。`catalog/all.json` 还包含用于检索、核对和统计分母的其他书目。全文处理任务数独立于健康目录收录数。
+- `home.json` 提供当期选读、趋势和标签统计。NBER 年度总数另取官方发布日目录，五大刊独立卷期分母取核对过的卷期目录。
+
+## 本地构建输入
+
+以下路径描述本地生成书目时的文件。网站发布时还会应用逐篇复核结果。
 
 | 文件 | 用途 |
 | --- | --- |
@@ -13,7 +21,7 @@
 
 年度篇数跳转到 #library?series=trend&year=2003；独立卷期占比使用 series=toc，目录占比使用 series=issue。论文页使用 #paper?id=10.1086%2F374180。筛选状态保存在链接中。默认健康目录合并 data/index/ 下的 top5、nber、other 三个分组，各来源栏目只加载自己的分组。跨学科目录使用 papers-index.json。导入中间文件 catalog.json 与上游 CSV 同目录存放。
 
-## 口径与来源
+## 本地输入的口径与来源
 
 - 年度趋势中的健康研究来自可逐篇查到的选录，仍可增补。JEL I1、NBER 项目归属和全文检索提供发现线索；期刊条目进入健康研究趋势需要独立的选录记录。NBER 的年度指标使用项目归属。早期工作论文漏配、改题和跨项目发表都会影响可关联的版本数。
 - 五刊卷期与 DOI 的对照使用 Econ Journal Authors 的冻结版，沿用其 CC BY 4.0 署名。AER 年会专期从书目和统计中排除。2003–2010 年对应第 2 期，2011–2013 年第 3 期，2014–2017 年第 5 期。2018 年起按独立刊名或其 DOI 排除 P&P，保留 AER 五月常规期。部分早期论文有多个 DOI，同刊、同卷、同起页及同一标准化题名才合并。当前卷期参考 Wiley 与出版者提供给 RePEc 的 Econometrica 目录。
