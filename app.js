@@ -9,9 +9,11 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=ec987d35e2-aba60747512a";
+} from "./figures.js?v=ec987d35e2-0bb6f30942a5";
 const el = document.querySelector("#app");
-const apiBase = document.querySelector('meta[name="healthecon-api"]')?.content;
+const localPreview = ["127.0.0.1","localhost"].includes(location.hostname) && location.port === "4173";
+const apiBase = document.querySelector('meta[name="healthecon-api"]')?.content ||
+  (localPreview ? "http://127.0.0.1:4174/api/v1/" : "");
 const apiPapers = new Map();
 let composition, feature;
 async function api(path, params = {}) {
@@ -71,7 +73,6 @@ function badgesFor(w) {
     .filter(([, ,items]) => items.length)
     .map(([key,title,items]) => `<div class="label-group label-${key}"><small>${title}</small>${items.map(name=>`<span>${esc(name)}</span>`).join("")}</div>`).join("");
 }
-const readingVersions = {workingPaper:"工作论文版",acceptedVersion:"作者定稿",submittedVersion:"投稿稿",preprint:"预印本",publishedVersion:"期刊发表版",publisherCopy:"出版社版本",repositoryFullText:"机构库版本",localCopy:"本地核对版本",openCopy:"公开版本"};
 let stats, byId;
 let works;
 const isCurrent = w => w.set === "本年卷期" || w.set === "本年在线";
@@ -138,7 +139,7 @@ async function readDetail(node) {
       );
     box.innerHTML =
       (entry.abstractZh
-        ? `<strong>中文译文</strong>${entry.translationSource ? ` <span class="meta">· ${esc(entry.translationSource)}</span>` : ""}<p>${esc(entry.abstractZh)}</p>`
+        ? `<strong>中文摘要</strong><p>${esc(entry.abstractZh)}</p>`
         : "") +
       (a
         ? `<strong>${esc(a.version === "工作论文" ? "工作论文摘要" : a.version === "预印本" ? "预印本摘要" : "原文摘要")}</strong><p lang="en">${esc(a.text)}</p><small class="meta">摘要来源 · ${esc(abstractSource(a.source))}</small>`
@@ -163,10 +164,9 @@ async function showStudy(section) {
   try {
     if (summaryIndex[key]?.hasSummary) {
       const sections = (apiBase ? (await apiPaper(key)).summary : (await get("summaries/" + year))[key]).sections;
-      const note = summaryIndex[key].sourceNote;
-      const credits = [summaryIndex[key].summaryStage === "first" ? "中文初译 · 尚未复核" : "", note].filter(Boolean);
-      const stage = credits.length ? '<p class="meta">' + credits.map(esc).join(" · ") + '</p>' : "";
-      box.innerHTML = stage + sections.map(s => `<section><h3>${esc(s.name)}</h3>${s.paragraphs.map(t=>`<p>${esc(t)}</p>`).join("")}</section>`).join("");
+      box.innerHTML = sections.map(s => s.name === "注释"
+        ? `<details class="reading-notes"><summary>注释（${s.paragraphs.length}）</summary>${s.paragraphs.map(t=>`<p>${esc(t)}</p>`).join("")}</details>`
+        : `<section><h3>${esc(s.name)}</h3>${s.paragraphs.map(t=>`<p>${esc(t)}</p>`).join("")}</section>`).join("");
       return;
     }
     if (!apiBase && !readingYears.has(year)) readingYears.set(year,get("studies/"+year).catch(e=>{readingYears.delete(year);throw e;}));
@@ -174,8 +174,7 @@ async function showStudy(section) {
     if (!note) throw new Error("missing study");
     const pages=Object.entries(note.tagEvidence).map(([label,item])=>
       `<li><b>${esc(label)}</b>　${esc(item.reason)} <small>（第 ${esc(item.pages.join("、"))} ${esc(note.unit)}）</small></li>`).join("");
-    box.innerHTML=`<p class="meta">${esc(note.kind)} · ${esc(readingVersions[note.version] || "馆藏全文")} · ${esc(note.credit)}</p>`+
-      note.paragraphs.map(p=>`<p>${esc(p.text)} <small class="study-loc">〔${esc(note.unit)} ${esc(p.pages.join("、"))}〕</small></p>`).join("")+
+    box.innerHTML=note.paragraphs.map(p=>`<p>${esc(p.text)} <small class="study-loc">〔${esc(note.unit)} ${esc(p.pages.join("、"))}〕</small></p>`).join("")+
       (pages ? `<details><summary>标签依据</summary><ul>${pages}</ul></details>` : "");
   } catch {
     box.textContent="文章总结暂时无法载入。 ";
