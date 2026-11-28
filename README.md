@@ -25,7 +25,7 @@
 本地采集 JHE 的卷期字段可运行 `scripts/jhe_issues.py <书目项目>/采集/JHE卷期/0167-6296.json`，再重建索引。卷期号来自 Crossref 出版者记录，年份沿用已核对的本站目录。
 HE 的卷期缓存使用相同命令，指定 `--issn 1057-9230`，文件名为 `1057-9230.json`。人工补译保存在 `data/editorial-translations.json`。批量译文随索引和各年摘要一起发布，保留原始题名和摘要供读者对照。
 
-首页每月选读一篇五大刊研究。摄影与艺术作品的图注注明作者、年代与馆藏，并链接至原作。界面拉丁字符使用本地托管的 [Source Sans 3](https://github.com/adobe-fonts/source-sans)，拉丁子集由 [Fontsource](https://fontsource.org/fonts/source-sans-3) 分发，授权见 [OFL](assets/fonts/OFL.txt)。
+首页展示编辑选读的研究。配图注明摄影师或艺术家、日期和来源，并链接至原作。界面拉丁字符使用本地托管的 [Source Sans 3](https://github.com/adobe-fonts/source-sans)，拉丁子集由 [Fontsource](https://fontsource.org/fonts/source-sans-3) 分发，授权见 [OFL](assets/fonts/OFL.txt)。
 
 论文卡片可展开中英文摘要。已有文章总结的论文，点击标题可以独立阅读长总结，并核对每段和各标签所对应的正文页码。作者使用的资料与方法按本篇论文判定。综述中列举的其他研究保留在行文中。空缺标签表示尚无确认依据。
 
