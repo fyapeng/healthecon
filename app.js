@@ -4,11 +4,29 @@ import {
   routeLink as href,
   lineFigure,
   activateFigures,
+  compositionFigure,
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=20261125-sources";
+} from "./figures.js?v=ec987d35e2";
 const el = document.querySelector("#app");
+const apiBase = document.querySelector('meta[name="healthecon-api"]')?.content;
+const apiPapers = new Map();
+let composition, feature;
+async function api(path, params = {}) {
+  const url = new URL(apiBase + path, location.href);
+  url.search = new URLSearchParams(params);
+  const response = await fetch(url);
+  if (!response.ok) throw Object.assign(Error(path), {status:response.status});
+  return response.json();
+}
+function apiPaper(id) {
+  if (!apiPapers.has(id)) apiPapers.set(id, api("paper", {id}).catch(error => {
+    apiPapers.delete(id);
+    throw error;
+  }));
+  return apiPapers.get(id);
+}
 const fmt = (n) => Number(n).toLocaleString("zh-CN");
 const btn = (title, page, params = {}) =>
   `<a class="btn" href="${esc(href(page, params))}">${esc(title)}</a>`;
@@ -95,7 +113,7 @@ async function readDetail(node) {
   const box = node.querySelector(".abstract-body"),
     year = node.dataset.year;
   box.textContent = "正在读取…";
-  if (!detailCache.has(year))
+  if (!apiBase && !detailCache.has(year))
     detailCache.set(
       year,
       get("details/" + year).catch((error) => {
@@ -104,7 +122,7 @@ async function readDetail(node) {
       }),
     );
   try {
-    const entry = (await detailCache.get(year))[node.dataset.key] || {};
+    const entry = (apiBase ? (await apiPaper(node.dataset.key)).detail : (await detailCache.get(year))[node.dataset.key]) || {};
     const a = entry.abstract;
     const links = [];
     if (entry.workingPaper)
@@ -137,12 +155,14 @@ async function showStudy(section) {
   const {year,key}=section.dataset;
   try {
     if (summaryIndex[key]?.hasSummary) {
-      const sections = (await get("summaries/" + year))[key].sections;
-      box.innerHTML = sections.map(s => `<section><h3>${esc(s.name)}</h3>${s.paragraphs.map(t=>`<p>${esc(t)}</p>`).join("")}</section>`).join("");
+      const sections = (apiBase ? (await apiPaper(key)).summary : (await get("summaries/" + year))[key]).sections;
+      const note = summaryIndex[key].sourceNote;
+      const stage = summaryIndex[key].summaryStage === "first" ? '<p class="meta">中文初译 · 尚未复核' + (note ? " · "+esc(note) : "") + '</p>' : "";
+      box.innerHTML = stage + sections.map(s => `<section><h3>${esc(s.name)}</h3>${s.paragraphs.map(t=>`<p>${esc(t)}</p>`).join("")}</section>`).join("");
       return;
     }
-    if (!readingYears.has(year)) readingYears.set(year,get("studies/"+year).catch(e=>{readingYears.delete(year);throw e;}));
-    const note=(await readingYears.get(year))[key];
+    if (!apiBase && !readingYears.has(year)) readingYears.set(year,get("studies/"+year).catch(e=>{readingYears.delete(year);throw e;}));
+    const note=apiBase ? (await apiPaper(key)).study : (await readingYears.get(year))[key];
     if (!note) throw new Error("missing study");
     const pages=Object.entries(note.tagEvidence).map(([label,item])=>
       `<li><b>${esc(label)}</b>　${esc(item.reason)} <small>（第 ${esc(item.pages.join("、"))} ${esc(note.unit)}）</small></li>`).join("");
@@ -188,8 +208,11 @@ function homeFinding(venue, scope, compare) {
   return statements.join("");
 }
 function homeFeature() {
+  const art = feature.image;
+  const base = "assets/" + encodeURIComponent(art.base);
+  const source = /^https:\/\//.test(art.source) ? esc(art.source) : "#";
   return `<p class="definition"><strong>用经济学理解健康与医疗中的取舍。</strong></p>
-    <div class="hero"><div class="copy"><p class="eyebrow">近期研究　/　NBER 工作论文</p><h1>街灯换了，<br>居民睡得更好吗？</h1><p>加拿大本拿比市陆续把老式街灯换成 LED 灯。研究者比较街区更换照明前后的变化，追踪居民的睡眠、心理健康和工作缺勤。</p><div class="actions">${btn("看研究摘要 →", "paper", { id: "10.3386/w36060" })}<span>2026 年 11 月</span></div></div><figure class="cover-print"><a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york" aria-label="查看馆藏完整照片"><img src="assets/fraser-wet-night-760.webp" srcset="assets/fraser-wet-night-480.webp 480w, assets/fraser-wet-night-760.webp 760w, assets/fraser-wet-night-1000.webp 1000w" sizes="(max-width: 650px) 91vw, (max-width: 850px) calc(54vw - 12px), (max-width: 1494px) 51.65vw, 775px" alt="纽约哥伦布圆环雨夜，树影之间的街灯倒映在湿漉漉的路面上" width="1000" height="535" fetchpriority="high"></a><figcaption>纽约哥伦布圆环的雨夜，1899 · William A. Fraser 摄影（局部） <a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york">美国国家美术馆 ↗</a></figcaption></figure></div>`;
+    <div class="hero"><div class="copy"><p class="eyebrow">${esc(feature.series)}</p><h1>${feature.headline.map(esc).join("<br>")}</h1><p>${esc(feature.description)}</p><div class="actions">${btn("看研究摘要 →","paper",{id:feature.paper})}<span>${esc(feature.date)}</span></div></div><figure class="cover-print"><a href="${source}" aria-label="查看馆藏完整照片"><img src="${base}-760.webp" srcset="${base}-480.webp 480w, ${base}-760.webp 760w, ${base}-1000.webp 1000w" sizes="(max-width: 650px) 91vw, (max-width: 850px) calc(54vw - 12px), (max-width: 1494px) 51.65vw, 775px" alt="${esc(art.alt)}" width="${Number(art.width)}" height="${Number(art.height)}" fetchpriority="high"></a><figcaption>${esc(art.caption)} <a href="${source}">${esc(art.credit)} ↗</a></figcaption></figure></div>`;
 }
 function home(p) {
   const venue = jnames.includes(p.get("venue")) ? p.get("venue") : "";
@@ -198,12 +221,54 @@ function home(p) {
   const year = latestYear();
   return `${homeFeature()}
     <section class="home-trend"><div><h2>健康研究占多少？</h2><p id="home-finding">${esc(homeFinding(venue, scope, compare))}</p><form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="basis" aria-label="趋势时间范围"><option value="toc">2010–2025 · 核对卷期</option><option value="issue" ${scope === "issue" ? "selected" : ""}>2003 年起 · 收录卷期</option></select><label><input type="checkbox" name="showNber" ${compare ? "checked" : ""}> 对照 NBER</label></form><small>更新至 ${esc(stats.cutoff)}</small></div><div id="home-figure">${homeSeries(venue, scope, compare)}</div></section>
+    ${homeComposition()}
     <section class="shelf"><h2>${year} 年的研究</h2><p class="meta">截至 ${esc(stats.cutoff)}，本年累计</p><div class="editions">${[
       ["top5", "五大刊 · 卷期发表", topSeries(stats, "", "trend").at(-1).count],
       ["nber", "NBER · 健康项目", stats.nber[year][0]],
     ].map(([source, label, count]) =>
       `<a href="${href(source, { year, series: source === "top5" ? "trend" : "" })}"><span>${label}</span><strong>${count} <small>篇</small></strong><em>浏览论文 →</em></a>`
     ).join("")}</div></section>`;
+}
+
+const dimensions = {data:"数据来源", methods:"研究方法", topics:"研究主题"};
+function tagItems(group) {
+  return Object.entries(taxonomy[group]).map(([code,item]) => [code, item.name || item]);
+}
+function homeComposition() {
+  if (!composition) return "";
+  const ready = Object.values(composition).some(row => ["top5","nber"].some(key => row[key].total && row[key].coded === row[key].total));
+  const selector = ready ? '<label>比较指标 <select id="composition-tag">' + Object.entries(dimensions).map(([group,title]) =>
+    '<optgroup label="' + title + '">' + tagItems(group).map(([code,name]) => '<option value="' + esc(code) + '">' + esc(name) + '</option>').join("") + '</optgroup>'
+  ).join("") + '</select></label>' : "";
+  return `<section class="home-trend"><div><h2>健康研究用了哪些数据和方法？</h2><p>逐年比较五大刊和 NBER 健康研究中使用行政数据、结构估计、DID 以及讨论各个主题的论文比例。</p>${selector}</div><div id="composition-figure">${compositionFigure(composition,"admin","行政数据")}</div></section>`;
+}
+
+function journalBars(year, scope) {
+  return jnames.flatMap(venue => {
+    const point = topSeries(stats,venue,scope).find(row => row.year === year);
+    return point ? [{label:venue, value:point.count, link:point.link}] : [];
+  });
+}
+function updateTopSide(section, year) {
+  const {venue, scope} = section.dataset;
+  section.querySelector(".eyebrow").textContent = year + " 年";
+  const group = section.querySelector("select")?.value || "journals";
+  const body = section.querySelector(".side-body");
+  if (group === "journals") {
+    const items = journalBars(year,scope);
+    body.innerHTML = items.length ? bars(items) : "<p>该年暂无卷期记录。</p>";
+    return;
+  }
+  const key = (venue || "top5") + (scope === "trend" ? "" : ":" + scope);
+  const cell = composition[year][key];
+  const items = tagItems(group);
+  const head = `<p class="meta">${esc(venue || "五刊合计")} · 已标注 ${cell.coded} / ${cell.total} 篇</p>`;
+  if (!cell.coded) { body.innerHTML = head + (cell.total ? "<p>该年度尚无已标注论文。</p>" : "<p>该年度无收录论文。</p>"); return; }
+  const complete = cell.total === cell.coded;
+  const rows = items.map(([code,label]) => [label,cell.counts[code] || 0]).sort((a,b)=>b[1]-a[1]);
+  body.innerHTML = head + '<div class="bars tag-bars">' + rows.map(([label,n]) =>
+    `<div><span>${esc(label)}</span><meter min="0" max="${cell.coded}" value="${n}" aria-label="${esc(label)}"></meter><b>${complete ? (100*n/cell.total).toFixed(1)+"%" : n+" 篇"}</b></div>`
+  ).join("") + '</div>';
 }
 
 function channel(page, p) {
@@ -237,15 +302,7 @@ function channel(page, p) {
   let side, breakdown;
   if (top) {
     side = "各刊收录篇数";
-    breakdown = jnames
-      .map((venue) => ({
-        label: venue,
-        value:
-          topSeries(stats, venue, scope).find((r) => r.year === year)?.count ??
-          null,
-        link: href(page, { year, venue, series: scope, focus: "list" }),
-      }))
-      .filter((r) => r.value != null);
+    breakdown = journalBars(year,scope);
   } else {
     side = "各季发布篇数";
     breakdown = Array.from({ length: 4 }, (_, i) => ({
@@ -264,9 +321,11 @@ function channel(page, p) {
   const controls = top
     ? `<form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="series" aria-label="图表指标"><option value="trend">发表篇数</option><option value="toc" ${scope === "toc" ? "selected" : ""}>年度占比 · 核对卷期</option><option value="issue" ${scope === "issue" ? "selected" : ""}>年度占比 · 收录卷期</option></select></form>`
     : `<form class="controls compact" data-auto><select name="metric" aria-label="图表指标"><option value="share">项目占比</option><option value="count" ${!percent ? "selected" : ""}>发布篇数</option></select></form>`;
+  const sidePanel = top ? `<section data-top-side data-venue="${esc(venue)}" data-scope="${esc(scope)}"><span class="eyebrow">${esc(year)} 年</span><h2>年度构成</h2>${composition ? '<label>查看 <select aria-label="年度构成指标"><option value="journals">各刊收录篇数</option>' + Object.entries(dimensions).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join("") + '</select></label>' : '<p>各刊收录篇数</p>'}<div class="side-body"></div></section>` :
+    `<section><span class="eyebrow">${esc(year)} 年</span><h2>${side}</h2>${breakdown.length ? bars(breakdown) : "<p>暂无季度记录。</p>"}</section>`;
   return (
     titleblock(sourceNames[page], sourceTitles[page], intro) +
-    `<div class="overview"><section><h2>年度${percent ? "占比" : "篇数"}</h2>${controls}${lineFigure([{ name: lineName, points }], percent, lineName + "年度趋势")}<p class="meta">${scope === "toc" ? "2010–2025 年完整卷期" : "更新至 " + esc(nber ? stats.nberLatest : stats.cutoff)}</p></section><section><span class="eyebrow">${esc(year)} 年</span><h2>${side}</h2>${breakdown.length ? bars(breakdown) : "<p>该年没有这一口径的卷期记录。</p>"}</section></div>` +
+    `<div class="overview"><section><h2>年度${percent ? "占比" : "篇数"}</h2>${controls}${lineFigure([{ name: lineName, points }], percent, lineName + "年度趋势")}<p class="meta">${scope === "toc" ? "2010–2025 年完整卷期" : "更新至 " + esc(nber ? stats.nberLatest : stats.cutoff)}</p></section>${sidePanel}</div>` +
     library(p, page, corpus)
   );
 }
@@ -445,7 +504,8 @@ function about() {
   <p class="about-lead">整理 2020—2024 年经济学五大刊的健康研究时，我想知道，哪些问题反复出现在这些期刊上？把时间再往前拉十年，看到的还是同一幅图景吗？这个网站就是从那份书单开始的。</p>
   <section><h2>从工作论文到期刊发表</h2><p>五大刊让人看到，健康议题何时进入综合经济学期刊。NBER 工作论文往往更早流通，适合追踪最近有哪些问题引起了研究者的兴趣。</p>
   <p>你可以从首页的一年开始，沿着折线找到当年的论文。也可以直接在<a href="#library">文献概览</a>里查作者和题名，展开摘要，把筛选后的书目导出。想随意翻翻，可以从<a href="#atlas">研究主题</a>里的一个问题读起。</p></section>
-  <section><h2>这些数字怎样读</h2><p>五大刊按卷期发表年计，NBER 按工作论文首次发布年计。每个比例的分母都是本来源当年的论文总数。五大刊依据本站逐篇选录，NBER 依据健康研究项目归属。一篇工作论文后来在期刊发表，两个来源会分别记录它。</p>
+  <section><h2>这些数字怎样读</h2><p>五大刊按卷期发表年计，NBER 按工作论文首次发布年计。“健康研究占多少”把当年的健康论文与同一来源的全部论文相比。五大刊依据本站逐篇选录，NBER 依据健康研究项目归属。一篇工作论文后来在期刊发表，两个来源会分别记录它。</p>
+  <p>数据、方法和主题的年度占比以该来源当年的健康论文为分母。一个年度完成全文标注后才会画出占比。同一篇可以使用多种方法，也可以讨论多个主题。</p>
   <p>首页默认的五刊占比使用 2010–2025 年独立核对的卷期目录。想看更早的年份，可以切换到 2003 年起的本站卷期目录。今年的数字会随新论文增加。发现漏收、误收或年份有误，欢迎在 <a href="https://github.com/fyapeng/healthecon/issues">GitHub 留言</a>，附上题名或 DOI 就好。</p></section>
   <section><h2>资料与致谢</h2><p>五刊卷期参考 <a href="https://github.com/kochiuyu/econ-journal-authors">Econ Journal Authors</a>（<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>），AER 采用常规期。2017 年及以前的年会专期与 2018 年起独立出版的 AEA Papers and Proceedings 均已从目录和统计中剔除。工作论文来自 <a href="https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata">NBER 公开书目</a>，历史项目按<a href="https://www.nber.org/programs-projects/programs-working-groups/economics-health">合并后的健康研究项目</a>回溯。各篇摘要标有来源。</p>
   <p>首页雨夜街景摄于 1899 年，记录纽约哥伦布圆环的街灯。摄影师 William A. Fraser，公有领域作品，藏于<a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york">美国国家美术馆</a>。</p></section></article>`;
@@ -470,7 +530,17 @@ function render() {
     about,
   };
   el.innerHTML = (pages[page] || home)(p);
-  activateFigures(el, p.get("year") || (stats && String(Number(latestYear()) - 1)));
+  const side = el.querySelector("[data-top-side]");
+  if (side) {
+    const overview = side.closest(".overview");
+    overview.addEventListener("inspectyear", e => updateTopSide(side,e.detail));
+    side.querySelector("select")?.addEventListener("change", () => updateTopSide(side,overview.querySelector(".inspect-year strong").textContent));
+  }
+  activateFigures(el, p.get("year") || (stats && (page === "top5" || page === "nber" ? latestYear() : String(Number(latestYear()) - 1))));
+  const tag = el.querySelector("#composition-tag");
+  if (tag) tag.onchange = () => {
+    el.querySelector("#composition-figure").innerHTML = compositionFigure(composition,tag.value,tag.selectedOptions[0].textContent);
+  };
   document.querySelectorAll("nav a").forEach((a) => {
     if (
       a.hash ===
@@ -553,6 +623,7 @@ function render() {
     };
 }
 async function get(file) {
+  if (apiBase) return api(file);
   const url = new URL("data/" + file + ".json", import.meta.url);
   url.search = new URL(import.meta.url).search;
   const r = await fetch(url);
@@ -570,7 +641,7 @@ function paperGroup(w) {
 function catalogGroup(group) {
   if (!catalogRequests.has(group)) {
     const file = group === "all" ? "papers-index" : "index/" + group;
-    const request = get(file).then(records => {
+    const request = (apiBase ? catalogPages(group) : get(file)).then(records => {
       const rows = group === "all"
         ? records.filter(w => w.venue !== "Journal of Health Economics" && w.venue !== "Health Economics")
         : records;
@@ -585,10 +656,27 @@ function catalogGroup(group) {
   }
   return catalogRequests.get(group);
 }
+async function catalogPages(source) {
+  const all = [];
+  let after = "";
+  do {
+    const page = await api("papers", {source, after, limit: 500});
+    all.push(...page.papers);
+    after = page.next;
+  } while (after);
+  return all;
+}
 async function catalogFor(route, params) {
   if (route === "paper") {
     const id = params.get("id");
     if (byId?.has(id)) return [byId.get(id)];
+    if (apiBase) {
+      try { return [(await apiPaper(id)).record]; }
+      catch (error) {
+        if (!id || error.status === 404) return [];
+        throw error;
+      }
+    }
     const hint = params.get("group") || (id?.startsWith("10.3386/") ? "nber" : "");
     if (healthGroups.includes(hint)) {
       const rows = await catalogGroup(hint);
@@ -605,7 +693,7 @@ async function catalogFor(route, params) {
 function loadingView(route) {
   const block = '<div class="loading-block" aria-hidden="true"><i></i><i></i><i></i></div>';
   const status = '<span class="sr-only" role="status">正在载入页面</span>';
-  return route === "home" ? homeFeature() + status + block :
+  return route === "home" && feature ? homeFeature() + status + block :
     `<div class="loading-page ${route === "paper" ? "reading-page" : ""}">${status}${block}${block}</div>`;
 }
 function loadStats() {
@@ -619,7 +707,8 @@ function loadStats() {
     }));
 }
 function canonical(route) {
-  return { trends: "top5", frontier: "nber", jhe: "library", he: "library" }[route] || route || "home";
+  const mapped = { trends: "top5", frontier: "nber", jhe: "library", he: "library" }[route] || route;
+  return ["library","paper","nber","atlas","about","top5"].includes(mapped) ? mapped : "home";
 }
 let navigation = 0;
 async function navigate() {
@@ -630,7 +719,9 @@ async function navigate() {
   if (!el.dataset.rendered || el.dataset.route !== route) el.innerHTML = loadingView(route);
   el.setAttribute("aria-busy", "true");
   try {
-    const [rows] = await Promise.all([catalogFor(route, params), needsStats && loadStats(), loadReadingIndex(), loadTaxonomy(), loadSummaries()]);
+    const [rows] = await Promise.all([catalogFor(route, params), needsStats && loadStats(), loadReadingIndex(), loadTaxonomy(), loadSummaries(),
+      route === "home" && !feature && get("feature").then(data => {feature=data;}),
+      apiBase && (route === "home" || route === "top5") && !composition && api("composition").then(data => {composition = data;})]);
     if (ticket !== navigation) return;
     if (rows) {
       works = rows;

@@ -246,6 +246,7 @@ export function activateFigures(root, preferredYear) {
         link.lastChild.textContent = source.textContent;
         link.setAttribute("aria-label", year + " 年 · " + columns[j] + " · " + source.textContent + "，浏览论文");
       }
+      figure.dispatchEvent(new CustomEvent("inspectyear", {bubbles:true, detail:year}));
     }
     const selected = rows.findIndex(row => row.cells[0].textContent === preferredYear);
     inspect(selected >= 0 ? selected : rows.length - 1);
@@ -263,6 +264,47 @@ export function activateFigures(root, preferredYear) {
       if (mark) inspect(positions.indexOf(Number(mark.getAttribute("cx"))));
     });
   }
+}
+
+// Each source can finish a different set of years. Break the line at every gap.
+export function compositionFigure(data, code, label) {
+  const years = Object.keys(data).sort();
+  if (!years.length) return "";
+  const sources = [["top5", "五大刊"], ["nber", "NBER"]];
+  const complete = cell => cell.total > 0 && cell.total === cell.coded;
+  const share = cell => 100 * (cell.counts[code] || 0) / cell.total;
+  const totals = sources.map(([key, name]) => {
+    const cells = years.map(y => data[y][key]);
+    return name + " " + cells.reduce((s,c) => s+c.coded,0) + " / " + cells.reduce((s,c) => s+c.total,0) + " 篇";
+  });
+  const coverage = '<p class="meta">全文标签覆盖 · ' + totals.join("　·　") + '</p>';
+  if (!years.some(y => sources.some(([key]) => complete(data[y][key])))) {
+    return coverage + '<p>首个来源年度完成全文标注后，这里将显示年度占比。</p>';
+  }
+  const width = 700, height = 198, left = 40, right = 665, base = 166;
+  const x = i => left + i * (right-left) / Math.max(1,years.length-1);
+  const y = pct => base - pct * 1.46;
+  const grid = [0,25,50,75,100].map(n => `<line x1="${left}" x2="${right}" y1="${y(n)}" y2="${y(n)}"/><text x="33" y="${y(n)+4}" text-anchor="end">${n}%</text>`).join("");
+  const ticks = years.map((v,i) => i % 5 === 0 || i === years.length-1 ? `<text x="${x(i)}" y="190" text-anchor="middle">${v}</text>` : "").join("");
+  const series = sources.map(([key,name],j) => {
+    let previous, marks = "";
+    for (const [i,year] of years.entries()) {
+      const cell = data[year][key];
+      if (!complete(cell)) { previous = null; continue; }
+      const point = x(i) + "," + y(share(cell));
+      if (previous) marks += `<polyline points="${previous} ${point}"/>`;
+      marks += `<circle cx="${x(i)}" cy="${y(share(cell))}" r="4"><title>${year} · ${name} · ${share(cell).toFixed(1)}%（${cell.counts[code] || 0}/${cell.total}）</title></circle>`;
+      previous = point;
+    }
+    return `<g class="series s${j}">${marks}</g>`;
+  }).join("");
+  const rows = years.map(year => "<tr><th>" + year + "</th>" + sources.map(([key]) => {
+    const c = data[year][key];
+    const value = complete(c) ? share(c).toFixed(1) + "%（" + (c.counts[code] || 0) + "/" + c.total + "）"
+      : c.total ? "已标 " + c.coded + "/" + c.total : "无论文";
+    return "<td>" + value + "</td>";
+  }).join("") + "</tr>").join("");
+  return coverage + `<svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeText(label)}年度占比">${grid}${ticks}${series}</svg><small>砖红实线 · 五大刊　深色虚线 · NBER</small><details class="numbers"><summary>查看各年占比与覆盖篇数</summary><table><thead><tr><th>年份</th><th>五大刊</th><th>NBER</th></tr></thead><tbody>${rows}</tbody></table></details>`;
 }
 
 export function bars(items) {
