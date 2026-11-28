@@ -9,14 +9,36 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=ec987d35e2-0bb6f30942a5";
+} from "./figures.js?v=ec987d35e2-79f785ecdabd";
 const el = document.querySelector("#app");
 const localPreview = ["127.0.0.1","localhost"].includes(location.hostname) && location.port === "4173";
+if (localPreview) {
+  const previewURL = new URL(location.href);
+  previewURL.port = "4174";
+  location.replace(previewURL);
+}
 const apiBase = document.querySelector('meta[name="healthecon-api"]')?.content ||
   (localPreview ? "http://127.0.0.1:4174/api/v1/" : "");
+const publicData = document.querySelector('meta[name="healthecon-public-data"]')?.content;
+async function publication(name) {
+  const response = await fetch(new URL(name + ".json",publicData));
+  if (!response.ok) throw Object.assign(Error(name),{status:response.status});
+  return response.json();
+}
 const apiPapers = new Map();
 let composition, feature;
 async function api(path, params = {}) {
+  if (publicData && path === "paper") {
+    const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(params.id)));
+    const bucket = bytes[0].toString(16).padStart(2,"0") + (bytes[1] >> 6);
+    const items = await publication("paper/"+bucket);
+    if (!Object.hasOwn(items,params.id)) throw Object.assign(Error("paper"),{status:404});
+    const paper = items[params.id];
+    if (paper.labels) summaryIndex[params.id] = paper.labels;
+    if (paper.reading) readingIndex[params.id] = paper.reading;
+    return paper;
+  }
+  if (publicData && path !== "papers") return publication(path);
   const url = new URL(apiBase + path, location.href);
   url.search = new URLSearchParams(params);
   const response = await fetch(url);
@@ -42,13 +64,15 @@ function loadReadingIndex() {
 }
 let taxonomy, taxonomyRequest, summaryIndex = {}, summaryRequest;
 const topicAliases = new Map();
-function loadTaxonomy() {
-  return taxonomyRequest ||= get("taxonomy").then(data => {
+function setTaxonomy(data) {
     taxonomy = data;
     for (const {name, aliases} of Object.values(data.topics)) {
       for (const alias of [name, ...aliases]) topicAliases.set(alias, name);
     }
-  }).catch(error => { taxonomyRequest = undefined; throw error; });
+}
+function loadTaxonomy() {
+  if (taxonomy) return;
+  return taxonomyRequest ||= get("taxonomy").then(setTaxonomy).catch(error => { taxonomyRequest = undefined; throw error; });
 }
 function loadSummaries() {
   return summaryRequest ||= get("summaries/index").then(data => {summaryIndex = data;})
@@ -664,6 +688,7 @@ function catalogGroup(group) {
   return catalogRequests.get(group);
 }
 async function catalogPages(source) {
+  if (publicData) return publication("catalog/"+source);
   const all = [];
   let after = "";
   do {
@@ -676,6 +701,10 @@ async function catalogPages(source) {
 async function catalogFor(route, params) {
   if (route === "paper") {
     const id = params.get("id");
+    if (publicData && id) {
+      try { return [(await apiPaper(id)).record]; }
+      catch (error) { if (error.status===404) return []; throw error; }
+    }
     if (byId?.has(id)) return [byId.get(id)];
     if (apiBase) {
       try { return [(await apiPaper(id)).record]; }
@@ -726,7 +755,12 @@ async function navigate() {
   if (!el.dataset.rendered || el.dataset.route !== route) el.innerHTML = loadingView(route);
   el.setAttribute("aria-busy", "true");
   try {
-    const [rows] = await Promise.all([catalogFor(route, params), needsStats && loadStats(), loadReadingIndex(), loadTaxonomy(), loadSummaries(),
+    if (publicData && route==="home" && (!composition || !feature || !stats || !taxonomy)) {
+      const home = await publication("home");
+      stats = home["archive-stats"]; feature = home.feature; composition = home.composition; setTaxonomy(home.taxonomy);
+    }
+    const needsIndex = !["home","about"].includes(route) && !(publicData && route==="paper");
+    const [rows] = await Promise.all([catalogFor(route, params), needsStats && !stats && loadStats(), needsIndex && loadReadingIndex(), route!=="about" && loadTaxonomy(), needsIndex && loadSummaries(),
       route === "home" && !feature && get("feature").then(data => {feature=data;}),
       apiBase && (route === "home" || route === "top5") && !composition && api("composition").then(data => {composition = data;})]);
     if (ticket !== navigation) return;
