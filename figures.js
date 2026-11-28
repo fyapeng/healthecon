@@ -104,7 +104,7 @@ export function lineFigure(series, pct, title) {
     const py=Math.min(bottom-21*(ends.length-k-1),Math.max(last+21,e.py));last=py;
     return `<g class="end-label s${e.j}"><path d="M${x(e.i)+5} ${e.py} L${width-right+12} ${py}"/><text x="${width-right+16}" y="${py+4}">${escapeText(e.name)}</text></g>`;
   }).join("");
-  const table=rows.map((r,i)=>`<tr data-x="${x(i)}"><th scope="row">${years[i]}</th>${r.map(p=>usable(p)?`<td data-value="${amount(p,pct)}" data-y="${y(p)}"><a href="${escapeText(p.link)}">${display(p,pct)}</a></td>`:`<td>${escapeText(p?.missing||"无数据")}</td>`).join("")}</tr>`).join("");
+  const table=rows.map((r,i)=>`<tr data-x="${x(i)}"><th scope="row">${years[i]}</th>${r.map(p=>usable(p)?`<td data-value="${amount(p,pct)}" data-y="${y(p)}"><a href="${escapeText(p.link)}" aria-label="${escapeText(years[i]+" 年，"+display(p,pct))}">${pct ? amount(p,true).toFixed(1)+"%" : display(p,false)}</a>${pct ? `<span class="fraction">（${p.count}/${p.total}）</span>` : ""}</td>`:`<td>${escapeText(p?.missing||"无数据")}</td>`).join("")}</tr>`).join("");
   return `<div class="time-figure" data-unit="${pct?"个百分点":"篇"}"><div class="figure-plot"><svg class="chart" viewBox="0 0 ${width} ${height}" role="group" aria-label="${escapeText(title)}">${grid.join("")}${ticks}<line class="ref-guide" visibility="hidden" y1="${top}" y2="${bottom}"/><line class="year-guide" y1="${top}" y2="${bottom}"/>${lines}${names}</svg></div><div class="inspect-year"><div class="year-navigation"><label>查看年份 <strong></strong><input type="range" aria-label="查看年份" min="0" max="${years.length-1}" step="1"></label><button type="button" class="ref-year" aria-pressed="false">设为对照年</button></div><div class="year-values"></div></div><details class="numbers"><summary>查看年度数字</summary><table><thead><tr><th>年份</th>${series.map(s=>"<th>"+escapeText(s.name)+"</th>").join("")}</tr></thead><tbody>${table}</tbody></table></details></div>`;
 }
 
@@ -136,7 +136,7 @@ export function activateFigures(root, preferredYear) {
         dot.setAttribute("visibility",link?"visible":"hidden");
         if(link){
           dot.setAttribute("cx",px);dot.setAttribute("cy",cell.dataset.y);
-          card.href=link.href;card.setAttribute("aria-label",yr+" 年 "+card.firstChild.textContent+" "+link.textContent+"，浏览对应论文");
+          card.href=link.href;card.setAttribute("aria-label",yr+" 年 "+card.firstChild.textContent+" "+cell.textContent+"，浏览对应论文");
         }else{card.removeAttribute("href");card.removeAttribute("aria-label");}
         card.children[1].textContent=cell.textContent;
         const base=rows[baseIndex]?.cells[j+1];

@@ -9,7 +9,7 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=ec987d35e2-cb49d4a1a829";
+} from "./figures.js?v=ec987d35e2-9b00b8d0599b";
 const el = document.querySelector("#app");
 const localPreview = ["127.0.0.1","localhost"].includes(location.hostname) && location.port === "4173";
 if (localPreview) {
@@ -92,10 +92,20 @@ function labelsFor(w, group) {
     [...Object.keys(readingIndex[w.id] || {}), ...(entry?.tags || [])]);
   return Object.values(taxonomy[group]).filter(name => all.has(name));
 }
+const filterKeys = {topics:"topic", methods:"technique", data:"dataset"};
+const routeNames = {home:"首页", top5:"Top 5", nber:"NBER", library:"文献概览", atlas:"研究主题"};
+function originRoute(value) {
+  const name = value?.split("?")[0];
+  return name && Object.hasOwn(routeNames, name) ? value : "library";
+}
+function paperOrigin() {
+  const current = location.hash.slice(1) || "home";
+  return current.startsWith("paper?") ? originRoute(new URLSearchParams(current.slice(6)).get("from")) : originRoute(current);
+}
 function badgesFor(w) {
-  return [["topic","主题",topicsFor(w)],["method","方法",labelsFor(w,"methods")],["data","数据",labelsFor(w,"data")]]
+  return [["topics","主题",topicsFor(w)],["methods","方法",labelsFor(w,"methods")],["data","数据",labelsFor(w,"data")]]
     .filter(([, ,items]) => items.length)
-    .map(([key,title,items]) => `<div class="label-group label-${key}"><small>${title}</small>${items.map(name=>`<span>${esc(name)}</span>`).join("")}</div>`).join("");
+    .map(([key,title,items]) => `<div class="label-group label-${key}"><small>${title}</small>${items.map(name=>`<a href="${esc(href("library",{[filterKeys[key]]:name,focus:"list"}))}" aria-label="查找${title}为${esc(name)}的论文">${esc(name)}</a>`).join("")}</div>`).join("");
 }
 let stats, byId;
 let works;
@@ -119,12 +129,12 @@ function abstractSource(source) {
   return names[source.split(" · ")[1]] || "Top5 Papers";
 }
 function paper(w, expanded = false) {
-  const internal = href("paper", { id: w.id, group: paperGroup(w) });
+  const internal = href("paper", { id: w.id, group: paperGroup(w), from: paperOrigin() });
   const url = w.id.startsWith("10.") ? "https://doi.org/" + w.id : w.id;
   const safe = /^https:\/\/(doi\.org|openalex\.org|arxiv\.org)\//i.test(url);
   const identifier = w.id.startsWith("10.") ? "DOI · " + w.id : "书目标识";
   const badges = badgesFor(w);
-  return `<article class="paper"><div class="meta">${esc(w.date || w.year)} · ${esc(w.venue)}${w.volume ? " · 卷 " + esc(w.volume) : ""}${w.issue ? " · 第 " + esc(w.issue) + " 期" : ""}${w.set === "本年在线" ? " · 提前在线" : ""}${w.articleType ? " · " + esc(w.articleType) : ""}</div><${expanded ? "h1" : "h3"}>${expanded ? esc(w.titleZh || w.title) : `<a href="${esc(internal)}">${esc(w.titleZh || w.title)}</a>`}</${expanded ? "h1" : "h3"}>${w.titleZh ? `<p lang="en">${esc(w.title)}</p>` : ""}${w.question ? `<p>${esc(w.question)}</p>` : ""}<div class="meta">${esc((w.authors || "").replaceAll(" | ", ", "))}</div>${[
+  return `<article class="paper" data-paper-id="${esc(w.id)}"><div class="meta">${esc(w.date || w.year)} · ${esc(w.venue)}${w.volume ? " · 卷 " + esc(w.volume) : ""}${w.issue ? " · 第 " + esc(w.issue) + " 期" : ""}${w.set === "本年在线" ? " · 提前在线" : ""}${w.articleType ? " · " + esc(w.articleType) : ""}</div><${expanded ? "h1" : "h3"}>${expanded ? esc(w.titleZh || w.title) : `<a href="${esc(internal)}">${esc(w.titleZh || w.title)}</a>`}</${expanded ? "h1" : "h3"}>${w.titleZh ? `<p lang="en">${esc(w.title)}</p>` : ""}${w.question ? `<p>${esc(w.question)}</p>` : ""}<div class="meta">${esc((w.authors || "").replaceAll(" | ", ", "))}</div>${[
     w.region,
   ]
     .filter((x) => x && x !== "待核")
@@ -135,8 +145,9 @@ function paper(w, expanded = false) {
 }
 function paperPage(p) {
   const w = byId.get(p.get("id"));
+  const from = originRoute(p.get("from"));
   return w
-    ? `<div class="reading-page"><p class="reading-back"><a href="#library">← 文献概览</a></p>${paper(w, true)}${(summaryIndex[w.id]?.hasSummary || Object.hasOwn(readingIndex,w.id)) ? `<section class="study-summary" aria-labelledby="study-heading" data-key="${esc(w.id)}" data-year="${esc(w.year)}"><h2 id="study-heading">Summary</h2><div class="study-body"></div></section>` : ""}</div>`
+    ? `<div class="reading-page"><p class="reading-back"><a href="#${esc(from)}">← ${routeNames[from.split("?")[0]]}</a></p>${paper(w, true)}${(summaryIndex[w.id]?.hasSummary || Object.hasOwn(readingIndex,w.id)) ? `<section class="study-summary" aria-labelledby="study-heading" data-key="${esc(w.id)}" data-year="${esc(w.year)}"><h2 id="study-heading">Summary</h2><div class="study-body"></div></section>` : ""}</div>`
     : '<p>没有找到这篇论文。<a href="#library">浏览文献</a></p>';
 }
 async function readDetail(node) {
@@ -159,7 +170,7 @@ async function readDetail(node) {
     const links = [];
     if (entry.workingPaper)
       links.push(
-        `<a href="${esc(href("paper", { id: entry.workingPaper }))}">NBER 工作论文版</a>`,
+        `<a href="${esc(href("paper", { id: entry.workingPaper, from: paperOrigin() }))}">NBER 工作论文版</a>`,
       );
     box.innerHTML =
       (entry.abstractZh
@@ -232,7 +243,7 @@ function homeFinding(venue, scope, compare) {
   if (!end?.total || !previous?.total) return "";
   const pct = p => (p.count * 100 / p.total).toFixed(1) + "%";
   const subject = venue || "五大刊";
-  const statements = [`${end.year} 年，${subject}共发表 ${end.count} 篇健康研究，占当年论文的 ${pct(end)}，上一年为 ${pct(previous)}。`];
+  const statements = [`${end.year} 年，${subject}${venue ? " " : ""}共发表 ${end.count} 篇健康研究，占当年论文的 ${pct(end)}，上一年为 ${pct(previous)}。`];
   const nber = stats.nber[end.year];
   if (compare && nber?.[1])
     statements.push(`同年，NBER 每发表 100 篇工作论文，约有 ${Math.round(100 * nber[0] / nber[1])} 篇研究健康与医疗问题。`);
@@ -242,8 +253,8 @@ function homeFeature() {
   const art = feature.image;
   const base = "assets/" + encodeURIComponent(art.base);
   const source = /^https:\/\//.test(art.source) ? esc(art.source) : "#";
-  return `<p class="definition"><strong>用经济学理解健康与医疗中的取舍。</strong></p>
-    <div class="hero"><div class="copy"><p class="eyebrow">${esc(feature.series)}</p><h1>${feature.headline.map(esc).join("<br>")}</h1>${feature.shortTitle ? `<div class="feature-title" lang="en">${esc(feature.shortTitle)}</div>` : ""}<p>${esc(feature.description)}</p><div class="actions">${btn("看研究摘要 →","paper",{id:feature.paper})}<span>${esc(feature.date)}</span></div></div><figure class="cover-print"><a href="${source}" aria-label="查看原始摄影作品"><img src="${base}-760.webp" srcset="${base}-480.webp 480w, ${base}-760.webp 760w, ${base}-1000.webp 1000w" sizes="(max-width: 650px) 91vw, (max-width: 850px) calc(54vw - 12px), (max-width: 1494px) 51.65vw, 775px" alt="${esc(art.alt)}" width="${Number(art.width)}" height="${Number(art.height)}" fetchpriority="high"></a><figcaption>${esc(art.caption)} <a href="${source}">${esc(art.credit)} ↗</a></figcaption></figure></div>`;
+  return `<p class="definition"><strong>用经济学理解健康与医疗中的取舍。</strong>${stats?.summary ? `<a href="#library">健康研究目录 · ${fmt(stats.summary.health)} 篇 →</a>` : ""}</p>
+    <div class="hero"><div class="copy"><p class="eyebrow">${esc(feature.series)}</p><h1>${feature.headline.map(esc).join("<br>")}</h1>${feature.shortTitle ? `<div class="feature-title" lang="en">${esc(feature.shortTitle)}</div>` : ""}${feature.authors ? `<div class="feature-authors" lang="en">${esc(feature.authors.replaceAll(" | ", ", "))}</div>` : ""}<p>${esc(feature.description)}</p><div class="actions">${btn("看研究摘要 →","paper",{id:feature.paper,from:paperOrigin()})}<span>${esc(feature.date)}</span></div></div><figure class="cover-print" style="--photo-ratio:${Number(art.width)} / ${Number(art.height)}"><a href="${source}" aria-label="查看原始摄影作品"><img src="${base}-760.webp" srcset="${base}-480.webp 480w, ${base}-760.webp 760w, ${base}-1000.webp 1000w" sizes="(max-width: 650px) 91vw, (max-width: 850px) calc(54vw - 12px), (max-width: 1494px) 51.65vw, 775px" alt="${esc(art.alt)}" width="${Number(art.width)}" height="${Number(art.height)}" fetchpriority="high"></a><figcaption>${esc(art.caption)} <a href="${source}">${esc(art.credit)} ↗</a></figcaption></figure></div>`;
 }
 function home(p) {
   const venue = jnames.includes(p.get("venue")) ? p.get("venue") : "";
@@ -280,8 +291,8 @@ function journalBars(year, scope) {
     return point ? [{label:venue, value:point.count, link:point.link}] : [];
   });
 }
-function updateTopSide(section, year) {
-  const {venue, scope} = section.dataset;
+function updateChannelSide(section, year) {
+  const {venue, scope, channel} = section.dataset;
   section.querySelector(".eyebrow").textContent = year + " 年";
   const group = section.querySelector("select")?.value || "journals";
   const body = section.querySelector(".side-body");
@@ -290,15 +301,28 @@ function updateTopSide(section, year) {
     body.innerHTML = items.length ? bars(items) : "<p>该年暂无卷期记录。</p>";
     return;
   }
-  const key = (venue || "top5") + (scope === "trend" ? "" : ":" + scope);
+  if (group === "quarters") {
+    const counts = [0,0,0,0];
+    for (const w of works) {
+      const q = Number(quarter(w));
+      if (w.health && w.venue === "NBER" && w.year === year && q >= 1 && q <= 4) counts[q-1]++;
+    }
+    const last = year === latestYear() ? Math.ceil(Number(stats.nberLatest.slice(5,7))/3) : 4;
+    body.innerHTML = bars(counts.slice(0,last).map((value,i) => ({
+      label:`第 ${i+1} 季度`, value, link:href("nber",{year,quarter:i+1,focus:"list"})
+    })));
+    return;
+  }
+  const key = channel === "nber" ? "nber" : (venue || "top5") + (scope === "trend" ? "" : ":" + scope);
+  if (!composition?.[year]?.[key]) { body.innerHTML = "<p>该年暂无标注统计。</p>"; return; }
   const cell = compositionCell(composition[year][key], group === "topics");
   const items = tagItems(group);
-  const head = `<p class="meta">${esc(venue || "五刊合计")} · 已标注 ${cell.coded} / ${cell.total} 篇</p>`;
+  const head = `<p class="meta">${esc(venue || sourceNames[channel])} · 已标注 ${cell.coded} / ${cell.total} 篇</p>`;
   if (!cell.coded) { body.innerHTML = head + (cell.total ? "<p>该年度尚无已标注论文。</p>" : "<p>该年度无收录论文。</p>"); return; }
   const complete = cell.total === cell.coded;
   const rows = items.map(([code,label]) => [label,cell.counts[code] || 0]).sort((a,b)=>b[1]-a[1]);
   body.innerHTML = head + '<div class="bars tag-bars">' + rows.map(([label,n]) =>
-    `<div><span>${esc(label)}</span><meter min="0" max="${cell.coded}" value="${n}" aria-label="${esc(label)}"></meter><b>${complete ? (100*n/cell.total).toFixed(1)+"%" : n+" 篇"}</b></div>`
+    `<a href="${esc(href(channel,{year,venue,series:scope,[filterKeys[group]]:label,focus:"list"}))}"><span>${esc(label)}</span><meter min="0" max="${cell.coded}" value="${n}" aria-label="${esc(label)}"></meter><b>${complete ? (100*n/cell.total).toFixed(1)+"%" : n+" 篇"}</b></a>`
   ).join("") + '</div>';
 }
 
@@ -329,31 +353,15 @@ function channel(page, p) {
     ? topSeries(stats, venue, scope)
     : nberSeries(stats);
   const lineName = top ? venue || "五刊合计" : sourceNames[page];
-  const yearPapers = corpus.filter((w) => w.year === year);
-  let side, breakdown;
-  if (top) {
-    side = "各刊收录篇数";
-    breakdown = journalBars(year,scope);
-  } else {
-    side = "各季发布篇数";
-    breakdown = Array.from({ length: 4 }, (_, i) => ({
-      label: "第 " + (i + 1) + " 季度",
-      value: yearPapers.filter((w) => quarter(w) === String(i + 1)).length,
-      link: href(page, { year, quarter: i + 1, focus: "list" }),
-    })).filter(
-      (r, i) =>
-        year !== latestYear() ||
-        i <= Math.floor((Number(stats.nberLatest.slice(5, 7)) - 1) / 3),
-    );
-  }
   const intro = top
     ? "查阅五大经济学期刊中的健康研究，比较不同期刊的发表数量与占比。"
     : "按首次发布年份，阅读 NBER 中研究健康与医疗问题的工作论文。";
   const controls = top
     ? `<form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="series" aria-label="图表指标"><option value="trend">发表篇数</option><option value="toc" ${scope === "toc" ? "selected" : ""}>年度占比 · 核对卷期</option><option value="issue" ${scope === "issue" ? "selected" : ""}>年度占比 · 收录卷期</option></select></form>`
     : `<form class="controls compact" data-auto><select name="metric" aria-label="图表指标"><option value="share">健康研究占比</option><option value="count" ${!percent ? "selected" : ""}>发布篇数</option></select></form>`;
-  const sidePanel = top ? `<section data-top-side data-venue="${esc(venue)}" data-scope="${esc(scope)}"><span class="eyebrow">${esc(year)} 年</span><h2>年度构成</h2>${composition ? '<label>查看 <select aria-label="年度构成指标"><option value="journals">各刊收录篇数</option>' + Object.entries(dimensions).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join("") + '</select></label>' : '<p>各刊收录篇数</p>'}<div class="side-body"></div></section>` :
-    `<section data-quarter-side><span class="eyebrow">${esc(year)} 年</span><h2>${side}</h2><div class="side-body">${breakdown.length ? bars(breakdown) : "<p>暂无季度记录。</p>"}</div></section>`;
+  const baseDimension = top ? ["journals","各刊收录篇数"] : ["quarters","各季发布篇数"];
+  const choices = [baseDimension,...(composition ? Object.entries(dimensions) : [])];
+  const sidePanel = `<section data-channel="${page}" data-venue="${esc(venue)}" data-scope="${esc(scope)}"><span class="eyebrow">${esc(year)} 年</span><h2>年度构成</h2><label>查看 <select aria-label="年度构成指标">${choices.map(([key,name])=>`<option value="${key}">${name}</option>`).join("")}</select></label><div class="side-body"></div></section>`;
   return (
     titleblock(sourceNames[page], sourceTitles[page], intro) +
     (top && stats.summary.regular != null ? topCatalogueLinks(stats.summary) : "") +
@@ -366,7 +374,7 @@ function quarter(w) {
 }
 function topCatalogueLinks(s) {
   const link = (name,n,params) => `<a href="${esc(href("top5",{...params,focus:"list"}))}">${name} ${fmt(n)} 篇</a>`;
-  return `<p class="catalogue-breakdown">${link("卷期研究论文",s.regular,{series:"trend"})} · ${link("提前在线",s.online,{collection:"online"})} · ${link("讲座与评论",s.commentary,{collection:"commentary"})}　 ${link("全部收录",s.top5,{collection:"all"})}</p>`;
+  return `<p class="catalogue-breakdown">${link("卷期研究论文",s.regular,{series:"trend"})} ${link("提前在线",s.online,{collection:"online"})} ${link("讲座与评论",s.commentary,{collection:"commentary"})} ${link("全部收录",s.top5,{collection:"all"})}</p>`;
 }
 function library(p, page = "library", pool = works) {
   const general = page === "library",
@@ -446,8 +454,15 @@ function library(p, page = "library", pool = works) {
           venue,
         )
       : "",
-    `<select name="abstract" aria-label="摘要"><option value="">全部论文</option><option value="yes" ${p.get("abstract") === "yes" ? "selected" : ""}>有摘要</option><option value="no" ${p.get("abstract") === "no" ? "selected" : ""}>未附摘要</option></select>`,
     select("year", "全部年份", unique("year").reverse(), year),
+    '<select name="sort" aria-label="排列顺序"><option value="recent">由近及远</option><option value="old" ' +
+      (sort === "old" ? "selected" : "") +
+      '>由远及近</option><option value="title" ' +
+      (sort === "title" ? "selected" : "") +
+      ">按题名</option></select>",
+  ].join("");
+  const moreFields = [
+    `<select name="abstract" aria-label="摘要"><option value="">全部论文</option><option value="yes" ${p.get("abstract") === "yes" ? "selected" : ""}>有摘要</option><option value="no" ${p.get("abstract") === "no" ? "selected" : ""}>未附摘要</option></select>`,
     nber
       ? select("quarter", "全部季度", ["1", "2", "3", "4"], p.get("quarter"))
       : "",
@@ -483,12 +498,15 @@ function library(p, page = "library", pool = works) {
         (p.get("scope") === "all" ? "selected" : "") +
         ">跨学科目录</option></select>"
       : "",
-    '<select name="sort" aria-label="排列顺序"><option value="recent">由近及远</option><option value="old" ' +
-      (sort === "old" ? "selected" : "") +
-      '>由远及近</option><option value="title" ' +
-      (sort === "title" ? "selected" : "") +
-      ">按题名</option></select>",
   ].join("");
+  const captions = {q:"关键词",venue:"来源",year:"年份",quarter:"季度",volume:"卷",issue:"期",topic:"主题",technique:"方法",dataset:"数据",region:"地点",abstract:"摘要",scope:"范围",zh:"中文",fulltext:"全文标签",method:"方法",set:"收录",collection:"收录",period:"收录",series:"卷期范围"};
+  const meanings = {abstract:{yes:"有摘要",no:"未附摘要"},scope:{all:"跨学科目录"},zh:{abstract:"有中文摘要",title:"有中文题名"},volume:{unknown:"未知"},collection:{online:"提前在线",commentary:"讲座与评论",all:"全部收录"},period:{current:"本年度"},series:{toc:"核对卷期",issue:"收录卷期",trend:"卷期研究论文"}};
+  const chips = [...p].filter(([key,value])=>Object.hasOwn(captions,key) && value).map(([key,value])=>{
+    const next = new URLSearchParams(p);
+    next.delete(key); next.delete("page"); next.set("focus","list");
+    const label = captions[key]+" · "+(meanings[key]?.[value] || value);
+    return `<a href="${esc(href(page,Object.fromEntries(next)))}" aria-label="移除${esc(label)}">${esc(label)} <span aria-hidden="true">×</span></a>`;
+  }).join("");
   const pg = (n, label) =>
     btn(label, page, { ...Object.fromEntries(p), page: n, focus: "list" });
   const context = [
@@ -514,7 +532,7 @@ function library(p, page = "library", pool = works) {
           "检索各来源的文献，展开题名下的摘要，或保存当前书目。",
         )
       : "") +
-    `<section id="papers"><div class="row"><h2>${general ? "检索文献" : "论文目录"}</h2>${top ? '<a href="' + href(page, { year: latestYear(), period: "current", focus: "list" }) + '">本年度论文（含提前在线） →</a>' : ""}</div><form class="controls filters" data-list>${fields}<button type="submit">查找</button><a href="#${page}">重置</a></form><div class="row"><p class="meta" role="status">${context ? context + " · " : ""}共 ${fmt(visible.length)} 篇</p><button class="text-action" id="export">导出书目 ↓</button></div><div class="list">${
+    `<section id="papers"><div class="row"><h2>${general ? "检索文献" : "论文目录"}</h2>${top ? '<a href="' + href(page, { year: latestYear(), period: "current", focus: "list" }) + '">本年度论文（含提前在线） →</a>' : ""}</div><form class="controls filters" data-list><div class="filter-main">${fields}<div class="filter-actions"><button type="submit">查找</button><a href="${href(page,{focus:"list"})}">重置</a></div></div><details class="more-filters"><summary>更多筛选</summary><div class="filter-options">${moreFields}</div></details>${chips ? `<div class="filter-chips" aria-label="已选筛选条件">${chips}</div>` : ""}</form><div class="row"><p class="meta" role="status">${context ? context + " · " : ""}共 ${fmt(visible.length)} 篇</p><button class="text-action" id="export">导出书目 ↓</button></div><div class="list">${
       visible
         .slice((num - 1) * 24, num * 24)
         .map((w) => paper(w))
@@ -571,29 +589,11 @@ function render() {
     about,
   };
   el.innerHTML = (pages[page] || home)(p);
-  const side = el.querySelector("[data-top-side]");
+  const side = el.querySelector("[data-channel]");
   if (side) {
-    const overview = side.closest(".overview");
-    overview.addEventListener("inspectyear", e => updateTopSide(side,e.detail));
-    side.querySelector("select")?.addEventListener("change", () => updateTopSide(side,overview.querySelector(".inspect-year strong").textContent));
-  }
-  const quarterSide = el.querySelector("[data-quarter-side]");
-  if (quarterSide) {
-    const counts = new Map();
-    for (const w of works) {
-      if (w.health && w.venue === "NBER") {
-        const key = w.year + "-" + quarter(w);
-        counts.set(key, (counts.get(key) || 0) + 1);
-      }
-    }
-    quarterSide.closest(".overview").addEventListener("inspectyear", ({detail: year}) => {
-      quarterSide.querySelector(".eyebrow").textContent = year + " 年";
-      const last = year === String(latestYear()) ? Math.ceil(Number(stats.nberLatest.slice(5,7))/3) : 4;
-      quarterSide.querySelector(".side-body").innerHTML = bars(Array.from({length:last}, (_, i) => ({
-        label: "第 " + (i+1) + " 季度", value: counts.get(year+"-"+(i+1)) || 0,
-        link: href("nber",{year,quarter:i+1,focus:"list"})
-      })));
-    });
+    const overview=side.closest(".overview");
+    overview.addEventListener("inspectyear", e=>updateChannelSide(side,e.detail));
+    side.querySelector("select").onchange=()=>updateChannelSide(side,overview.querySelector(".inspect-year strong").textContent);
   }
   activateFigures(el, p.get("year") || (stats && (page === "top5" || page === "nber" ? latestYear() : String(Number(latestYear()) - 1))));
   const tag = el.querySelector("#composition-tag");
@@ -604,14 +604,6 @@ function render() {
     figure.innerHTML=compositionFigure(composition,tag.value,tag.selectedOptions[0].textContent,group);
     activateFigures(figure,year);
   };
-  document.querySelectorAll("nav a").forEach((a) => {
-    if (
-      a.hash ===
-      "#" + (page === "paper" ? "library" : page)
-    )
-      a.setAttribute("aria-current", "page");
-    else a.removeAttribute("aria-current");
-  });
   const study=el.querySelector(".study-summary");
   if (study) showStudy(study);
   for (const node of el.querySelectorAll(".paper-detail")) {
@@ -639,6 +631,7 @@ function render() {
       const url = href(page, Object.fromEntries(next));
       if (page === "home" && form.elements.showNber) {
         history.replaceState(history.state, "", url);
+        el.querySelector(".hero .btn").href = href("paper",{id:feature.paper,from:paperOrigin()});
         const figure = document.getElementById("home-figure");
         const expanded = figure.querySelector("details")?.open;
         const year = figure.querySelector("input[type=range]")?.getAttribute("aria-valuetext");
@@ -781,11 +774,16 @@ function canonical(route) {
   const mapped = { trends: "top5", frontier: "nber", jhe: "library", he: "library" }[route] || route;
   return ["library","paper","nber","atlas","about","top5"].includes(mapped) ? mapped : "home";
 }
-let navigation = 0;
+let navigation = 0, lastDetail;
 async function navigate() {
   const ticket = ++navigation,
     route = canonical(location.hash.slice(1).split("?")[0]);
   const params = new URLSearchParams(location.hash.split("?")[1]);
+  const active = route === "paper" ? originRoute(params.get("from")).split("?")[0] : route;
+  for (const link of document.querySelectorAll("#main-nav a")) {
+    if (link.hash === "#" + active) link.setAttribute("aria-current","page");
+    else link.removeAttribute("aria-current");
+  }
   const needsStats = !["library", "paper", "atlas"].includes(route);
   if (!el.dataset.rendered || el.dataset.route !== route) el.innerHTML = loadingView(route);
   el.setAttribute("aria-busy", "true");
@@ -797,7 +795,7 @@ async function navigate() {
     const needsIndex = !["home","about"].includes(route) && !(publicData && route==="paper");
     const [rows] = await Promise.all([catalogFor(route, params), needsStats && !stats && loadStats(), needsIndex && loadReadingIndex(), route!=="about" && loadTaxonomy(), needsIndex && loadSummaries(),
       route === "home" && !feature && get("feature").then(data => {feature=data;}),
-      apiBase && (route === "home" || route === "top5") && !composition && api("composition").then(data => {composition = data;})]);
+      apiBase && ["home","top5","nber"].includes(route) && !composition && api("composition").then(data => {composition = data;})]);
     if (ticket !== navigation) return;
     if (rows) {
       works = rows;
@@ -807,11 +805,15 @@ async function navigate() {
     el.dataset.route = route;
     el.removeAttribute("aria-busy");
     render();
+    const returning = lastDetail && route !== "paper" && (location.hash.slice(1) || "home") === lastDetail.from ?
+      Array.from(el.querySelectorAll(".paper")).find(row=>row.dataset.paperId === lastDetail.id) : null;
+    lastDetail = route === "paper" ? {id:params.get("id"),from:originRoute(params.get("from"))} : null;
     menu.setAttribute("aria-expanded", "false");
     document.querySelector("#main-nav").classList.remove("open");
-    if (
-      new URLSearchParams(location.hash.split("?")[1]).get("focus") === "list"
-    )
+    if (returning) {
+      returning.scrollIntoView({block:"center"});
+      returning.querySelector("h3 a")?.focus({preventScroll:true});
+    } else if (params.get("focus") === "list")
       document.querySelector("#papers")?.scrollIntoView();
     else window.scrollTo(0, 0);
   } catch (error) {
