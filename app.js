@@ -9,7 +9,7 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=ec987d35e2-79f785ecdabd";
+} from "./figures.js?v=ec987d35e2-0cc851a6f0d3";
 const el = document.querySelector("#app");
 const localPreview = ["127.0.0.1","localhost"].includes(location.hostname) && location.port === "4173";
 if (localPreview) {
@@ -353,7 +353,7 @@ function channel(page, p) {
     ? `<form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="series" aria-label="图表指标"><option value="trend">发表篇数</option><option value="toc" ${scope === "toc" ? "selected" : ""}>年度占比 · 核对卷期</option><option value="issue" ${scope === "issue" ? "selected" : ""}>年度占比 · 收录卷期</option></select></form>`
     : `<form class="controls compact" data-auto><select name="metric" aria-label="图表指标"><option value="share">健康研究占比</option><option value="count" ${!percent ? "selected" : ""}>发布篇数</option></select></form>`;
   const sidePanel = top ? `<section data-top-side data-venue="${esc(venue)}" data-scope="${esc(scope)}"><span class="eyebrow">${esc(year)} 年</span><h2>年度构成</h2>${composition ? '<label>查看 <select aria-label="年度构成指标"><option value="journals">各刊收录篇数</option>' + Object.entries(dimensions).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join("") + '</select></label>' : '<p>各刊收录篇数</p>'}<div class="side-body"></div></section>` :
-    `<section><span class="eyebrow">${esc(year)} 年</span><h2>${side}</h2>${breakdown.length ? bars(breakdown) : "<p>暂无季度记录。</p>"}</section>`;
+    `<section data-quarter-side><span class="eyebrow">${esc(year)} 年</span><h2>${side}</h2><div class="side-body">${breakdown.length ? bars(breakdown) : "<p>暂无季度记录。</p>"}</div></section>`;
   return (
     titleblock(sourceNames[page], sourceTitles[page], intro) +
     `<div class="overview"><section><h2>年度${percent ? "占比" : "篇数"}</h2>${controls}${lineFigure([{ name: lineName, points }], percent, lineName + "年度趋势")}<p class="meta">${scope === "toc" ? "2010–2025 年完整卷期" : "更新至 " + esc(nber ? stats.nberLatest : stats.cutoff)}</p></section>${sidePanel}</div>` +
@@ -567,10 +567,32 @@ function render() {
     overview.addEventListener("inspectyear", e => updateTopSide(side,e.detail));
     side.querySelector("select")?.addEventListener("change", () => updateTopSide(side,overview.querySelector(".inspect-year strong").textContent));
   }
+  const quarterSide = el.querySelector("[data-quarter-side]");
+  if (quarterSide) {
+    const counts = new Map();
+    for (const w of works) {
+      if (w.health && w.venue === "NBER") {
+        const key = w.year + "-" + quarter(w);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+    }
+    quarterSide.closest(".overview").addEventListener("inspectyear", ({detail: year}) => {
+      quarterSide.querySelector(".eyebrow").textContent = year + " 年";
+      const last = year === String(latestYear()) ? Math.ceil(Number(stats.nberLatest.slice(5,7))/3) : 4;
+      quarterSide.querySelector(".side-body").innerHTML = bars(Array.from({length:last}, (_, i) => ({
+        label: "第 " + (i+1) + " 季度", value: counts.get(year+"-"+(i+1)) || 0,
+        link: href("nber",{year,quarter:i+1,focus:"list"})
+      })));
+    });
+  }
   activateFigures(el, p.get("year") || (stats && (page === "top5" || page === "nber" ? latestYear() : String(Number(latestYear()) - 1))));
   const tag = el.querySelector("#composition-tag");
   if (tag) tag.onchange = () => {
-    el.querySelector("#composition-figure").innerHTML = compositionFigure(composition,tag.value,tag.selectedOptions[0].textContent, Object.hasOwn(taxonomy.topics, tag.value));
+    const figure=el.querySelector("#composition-figure");
+    const year=figure.querySelector(".inspect-year strong")?.textContent;
+    const group=Object.keys(dimensions).find(k=>Object.hasOwn(taxonomy[k],tag.value));
+    figure.innerHTML=compositionFigure(composition,tag.value,tag.selectedOptions[0].textContent,group);
+    activateFigures(figure,year);
   };
   document.querySelectorAll("nav a").forEach((a) => {
     if (

@@ -782,6 +782,28 @@ summary {
 .chart .end-label text { fill: currentColor; font-weight: 600; }
 .end-label path { fill: none; stroke: currentColor; stroke-width: 1; }
 .end-label.s1 path { stroke-dasharray: 3 2; }
+.figure-plot { position:relative; padding-block:6px 3px; }
+.trend-stroke { fill:none; stroke:currentColor; stroke-width:2.6; stroke-linejoin:round; stroke-linecap:round; }
+.s1 .trend-stroke { stroke-dasharray:6 4; }
+.series .hit { fill:transparent; stroke:none; }
+.chart a:hover .hit, .chart a:focus .hit { stroke:none; }
+.series .selected-dot { stroke:var(--paper,#faf7f1); stroke-width:2; pointer-events:none; }
+.chart .ref-guide { stroke:var(--accent); stroke-dasharray:5 3; opacity:.65; }
+.year-navigation { display:flex; align-items:center; gap:14px; }
+.year-navigation label { flex:1; }
+.ref-year { font:inherit; font-size:12px; padding:.45em .7em; background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:3px; white-space:nowrap; }
+.ref-year[aria-pressed="true"] { color:var(--accent); border-color:currentColor; }
+.time-figure .year-values { gap:8px; margin-top:12px; }
+.year-values .value-card { padding:9px 12px; border-inline-start:3px solid var(--accent); background:rgba(166,53,27,.045); }
+.year-values .value-card.s1 { border-color:#39464a; background:rgba(56,70,75,.045); }
+.year-values .value-card.s1 b { color:#39464a; }
+.value-card small { color:var(--muted); min-height:1.35em; font-size:12px; }
+.value-card[href] span::after { content:" ↗"; }
+@media(prefers-reduced-motion:no-preference) {
+  .selected-dot { transition:cx .12s ease-out,cy .12s ease-out; }
+  .value-card, .ref-year { transition:background-color .15s; }
+  .value-card[href]:hover { background:rgba(166,53,27,.09); }
+}
 .year-values {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));

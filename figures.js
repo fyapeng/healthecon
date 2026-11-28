@@ -64,205 +64,108 @@ const display = (p, pct) =>
     : p.count + " 篇";
 
 export function lineFigure(series, pct, title) {
-  const years = series[0].points.map((p) => p.year);
+  const years = [...new Set(series.flatMap(s => s.points.map(p => p.year)))].sort();
   if (!years.length) return "<p>暂无可比较的年份。</p>";
   const narrow = matchMedia("(max-width: 650px)").matches;
-  const width = narrow ? 410 : 720,
-    height = narrow ? 200 : 215;
-  const names = series.map(s => narrow ? s.name.split(" · ")[0] : s.name);
-  // Reserve space for the widest label, including Chinese and long journal names.
-  const labelWidth = name => Array.from(name).reduce((n, c) => n + (c.charCodeAt(0) > 255 ? 14 : 8), 0);
-  const left = 43,
-    right = Math.max(...names.map(labelWidth)) + 23,
-    top = 17,
-    base = height - 30;
-  const max = Math.max(
-    1,
-    ...series.flatMap((s) => s.points.map((p) => amount(p, pct))),
-  );
-  const step =
-    [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000].find((n) => n >= max / 5) ||
-    Math.ceil(max / 5);
-  const ceiling = Math.ceil(max / step) * step;
-  const x = (year) =>
-    left +
-    ((width - left - right) * years.indexOf(year)) /
-      Math.max(1, years.length - 1);
-  const y = (point) => base - ((base - top) * amount(point, pct)) / ceiling;
-  let grid = "";
-  for (let n = 0; n <= ceiling; n += step) {
-    const row = base - ((base - top) * n) / ceiling;
-    grid +=
-      '<line x1="' +
-      left +
-      '" x2="' +
-      (width - right) +
-      '" y1="' +
-      row +
-      '" y2="' +
-      row +
-      '"/><text x="' +
-      (left - 7) +
-      '" y="' +
-      (row + 4) +
-      '" text-anchor="end">' +
-      n +
-      (pct ? "%" : "") +
-      "</text>";
+  const width = narrow ? 400 : 700, height = narrow ? 223 : 244;
+  const left = 42, right = narrow ? 76 : 101, top = 23, bottom = height - 32;
+  const usable = p => p && Number.isFinite(p.count) && (!pct || p.total > 0);
+  const rows = years.map(year => series.map(s => s.points.find(p => p.year === year)));
+  const max = Math.max(1,...rows.flat().filter(usable).map(p => amount(p,pct)));
+  const step = [1,2,5,10,20,25,50,100,200,500,1000].find(n => n >= max/5) || Math.ceil(max/5);
+  const ceiling = Math.ceil(max/step)*step;
+  const span = width-left-right;
+  const x = i => left+span*i/Math.max(1,years.length-1);
+  const y = p => bottom-(bottom-top)*amount(p,pct)/ceiling;
+  const grid = [];
+  for (let n=0;n<=ceiling;n+=step) {
+    const py=bottom-(bottom-top)*n/ceiling;
+    grid.push(`<line x1="${left}" x2="${width-right}" y1="${py}" y2="${py}"/><text x="${left-8}" y="${py+4}" text-anchor="end">${n}${pct?"%":""}</text>`);
   }
-  const labels = years
-    .map((year, i) =>
-      i === 0 || i === years.length - 1 || (i % 4 === 0 && i < years.length - 2)
-        ? '<text x="' +
-          x(year) +
-          '" y="' +
-          (height - 6) +
-          '" text-anchor="middle">' +
-          year +
-          "</text>"
-        : "",
-    )
-    .join("");
-  const ends = series.map((s, i) => ({i, point: s.points.at(-1), label: names[i]}))
-    .sort((a, b) => y(a.point) - y(b.point));
-  const gap = 19;
-  for (const [rank, end] of ends.entries()) {
-    const lower = rank ? ends[rank - 1].labelY + gap : top;
-    end.labelY = Math.min(base - gap * (ends.length - rank - 1), Math.max(y(end.point), lower));
-  }
-  const endLabels = ends.map(({i, point, label, labelY}) => {
-    const anchor = x(point.year);
-    return `<g class="end-label s${i}" aria-hidden="true"><path d="M${anchor + 5} ${y(point)}L${anchor + 14} ${labelY}"/><text x="${anchor + 18}" y="${labelY + 4}">${escapeText(label)}</text></g>`;
+  const ticks = years.map((yr,i) => i===0 || i===years.length-1 || (i%Math.ceil(years.length/(narrow?4:6))===0 && i<years.length-2)
+    ? `<text x="${x(i)}" y="${height-8}" text-anchor="middle">${yr}</text>` : "").join("");
+  const ends=[];
+  const lines=series.map((s,j) => {
+    let path="",marks="",prev=-2;
+    rows.forEach((r,i) => {
+      const p=r[j];
+      if (!usable(p)) return;
+      const px=x(i),py=y(p);
+      path+=(prev===i-1 && Number(years[i])-Number(years[prev])===1?" L":" M")+px+" "+py;
+      prev=i;
+      marks+=`<a href="${escapeText(p.link)}" data-i="${i}" aria-label="${escapeText(s.name+"，"+p.year+"，"+display(p,pct))}"><circle class="hit" cx="${px}" cy="${py}" r="8"/><circle class="dot" cx="${px}" cy="${py}" r="2.7"/></a>`;
+    });
+    if(prev>=0) ends.push({j,i:prev,py:y(rows[prev][j]),name:s.name.split(" · ")[0]});
+    return `<g class="series s${j}"><path class="trend-stroke" d="${path}"/>${marks}<circle class="selected-dot" r="5.1" visibility="hidden"/></g>`;
   }).join("");
-  const lines = series
-    .map((s, i) => {
-      const pts = s.points.map((p) => x(p.year) + "," + y(p)).join(" ");
-      const marks = s.points
-        .map((p) => {
-          const caption = escapeText(
-            s.name + " · " + p.year + " · " + display(p, pct),
-          );
-          return (
-            '<a href="' +
-            escapeText(p.link) +
-            '" aria-label="' +
-            caption +
-            '"><title>' +
-            caption +
-            '</title><circle cx="' +
-            x(p.year) +
-            '" cy="' +
-            y(p) +
-            '" r="3.8"/></a>'
-          );
-        })
-        .join("");
-      return (
-        '<g class="series s' +
-        i +
-        '"><polyline points="' +
-        pts +
-        '"/>' +
-        marks +
-        "</g>"
-      );
-    })
-    .join("");
-  const rows = years
-    .map(
-      (year, i) =>
-        '<tr><th scope="row">' +
-        year +
-        "</th>" +
-        series
-          .map((s) => {
-            const p = s.points[i];
-            return (
-              '<td><a href="' +
-              escapeText(p.link) +
-              '">' +
-              display(p, pct) +
-              "</a></td>"
-            );
-          })
-          .join("") +
-        "</tr>",
-    )
-    .join("");
-  return (
-    '<div class="time-figure"><svg class="chart" viewBox="0 0 ' +
-    width +
-    " " +
-    height +
-    '" role="group" aria-label="' +
-    escapeText(title) +
-    '">' +
-    grid +
-    labels +
-    `<line class="year-guide" y1="${top}" y2="${base}" aria-hidden="true"/>` +
-    lines + endLabels +
-    `</svg><div class="inspect-year"><label>查看年份 <strong></strong><input type="range" aria-label="查看年份" min="0" max="${years.length - 1}" step="1"></label><div class="year-values"></div></div>` +
-    '<details class="numbers"><summary>查看年度数字</summary><table><thead><tr><th>年份</th>' +
-    series.map((s) => "<th>" + escapeText(s.name) + "</th>").join("") +
-    "</tr></thead><tbody>" +
-    rows +
-    "</tbody></table></details></div>"
-  );
+  ends.sort((a,b)=>a.py-b.py);
+  let last=top-22;
+  const names=ends.map((e,k)=>{
+    const py=Math.min(bottom-21*(ends.length-k-1),Math.max(last+21,e.py));last=py;
+    return `<g class="end-label s${e.j}"><path d="M${x(e.i)+5} ${e.py} L${width-right+12} ${py}"/><text x="${width-right+16}" y="${py+4}">${escapeText(e.name)}</text></g>`;
+  }).join("");
+  const table=rows.map((r,i)=>`<tr data-x="${x(i)}"><th scope="row">${years[i]}</th>${r.map(p=>usable(p)?`<td data-value="${amount(p,pct)}" data-y="${y(p)}"><a href="${escapeText(p.link)}">${display(p,pct)}</a></td>`:`<td>${escapeText(p?.missing||"无数据")}</td>`).join("")}</tr>`).join("");
+  return `<div class="time-figure" data-unit="${pct?"个百分点":"篇"}"><div class="figure-plot"><svg class="chart" viewBox="0 0 ${width} ${height}" role="group" aria-label="${escapeText(title)}">${grid.join("")}${ticks}<line class="ref-guide" visibility="hidden" y1="${top}" y2="${bottom}"/><line class="year-guide" y1="${top}" y2="${bottom}"/>${lines}${names}</svg></div><div class="inspect-year"><div class="year-navigation"><label>查看年份 <strong></strong><input type="range" aria-label="查看年份" min="0" max="${years.length-1}" step="1"></label><button type="button" class="ref-year" aria-pressed="false">设为对照年</button></div><div class="year-values"></div></div><details class="numbers"><summary>查看年度数字</summary><table><thead><tr><th>年份</th>${series.map(s=>"<th>"+escapeText(s.name)+"</th>").join("")}</tr></thead><tbody>${table}</tbody></table></details></div>`;
 }
 
-// The readout, slider and links share the same rows as the accessible data table.
 export function activateFigures(root, preferredYear) {
-  for (const figure of root.querySelectorAll(".time-figure")) {
-    const chart = figure.querySelector(".chart");
-    const rows = Array.from(figure.querySelectorAll("tbody tr"));
-    const marks = Array.from(chart.querySelectorAll(".s0 circle"));
-    const columns = Array.from(figure.querySelectorAll("thead th")).slice(1).map(cell => cell.textContent);
-    const slider = figure.querySelector("input[type=range]");
-    const label = figure.querySelector(".inspect-year strong");
-    const values = figure.querySelector(".year-values");
-    const guide = chart.querySelector(".year-guide");
-    const positions = marks.map(mark => Number(mark.getAttribute("cx")));
-    const links = columns.map(name => {
-      const link = document.createElement("a");
-      const caption = document.createElement("span");
-      caption.textContent = name;
-      const value = document.createElement("b");
-      link.append(caption, value);
-      values.append(link);
-      return link;
+  for(const figure of root.querySelectorAll(".time-figure")){
+    if(figure.dataset.active) continue;
+    figure.dataset.active="1";
+    const chart=figure.querySelector("svg"),rows=[...figure.querySelectorAll("tbody tr")];
+    const slider=figure.querySelector("input"),label=figure.querySelector(".inspect-year strong");
+    const pin=figure.querySelector(".ref-year"),guide=chart.querySelector(".year-guide"),ref=chart.querySelector(".ref-guide");
+    const cells=[...figure.querySelectorAll("thead th")].slice(1).map((th,j)=>{
+      const node=document.createElement("a");
+      node.className="value-card s"+j;
+      node.innerHTML="<span></span><b></b><small></small>";
+      node.firstChild.textContent=th.textContent;
+      figure.querySelector(".year-values").append(node);
+      return node;
     });
-    function inspect(i) {
-      const row = rows[i];
-      const year = row.cells[0].textContent;
-      if (label.textContent === year) return;
-      label.textContent = year;
-      slider.value = i;
-      slider.setAttribute("aria-valuetext", year);
-      guide.setAttribute("x1", positions[i]);
-      guide.setAttribute("x2", positions[i]);
-      for (const [j, link] of links.entries()) {
-        const source = row.cells[j + 1].querySelector("a");
-        link.href = source.href;
-        link.lastChild.textContent = source.textContent;
-        link.setAttribute("aria-label", year + " 年 · " + columns[j] + " · " + source.textContent + "，浏览论文");
-      }
-      figure.dispatchEvent(new CustomEvent("inspectyear", {bubbles:true, detail:year}));
+    let selected=-1,reference=-1;
+    function focusYear(i,force=false){
+      if(i<0 || i>=rows.length || (i===selected && !force)) return;
+      selected=i;
+      const row=rows[i],yr=row.cells[0].textContent,px=row.dataset.x;
+      label.textContent=yr;slider.value=i;slider.setAttribute("aria-valuetext",yr);
+      guide.setAttribute("x1",px);guide.setAttribute("x2",px);
+      const baseIndex=reference>=0?reference:(i>0 && Number(yr)-Number(rows[i-1].cells[0].textContent)===1?i-1:-1);
+      cells.forEach((card,j)=>{
+        const cell=row.cells[j+1],link=cell.querySelector("a"),dot=chart.querySelector(".s"+j+" .selected-dot");
+        dot.setAttribute("visibility",link?"visible":"hidden");
+        if(link){
+          dot.setAttribute("cx",px);dot.setAttribute("cy",cell.dataset.y);
+          card.href=link.href;card.setAttribute("aria-label",yr+" 年 "+card.firstChild.textContent+" "+link.textContent+"，浏览对应论文");
+        }else{card.removeAttribute("href");card.removeAttribute("aria-label");}
+        card.children[1].textContent=cell.textContent;
+        const base=rows[baseIndex]?.cells[j+1];
+        const change=Number(cell.dataset.value)-Number(base?.dataset.value);
+        const unit=figure.dataset.unit;
+        const delta=Number(change.toFixed(unit==="篇"?0:1));
+        card.lastChild.textContent=reference===i?"对照年":!link||!base?.hasAttribute("data-value")?"":`较 ${rows[baseIndex].cells[0].textContent} 年 ${delta>0?"+":""}${delta} ${unit}`;
+      });
+      figure.dispatchEvent(new CustomEvent("inspectyear",{bubbles:true,detail:yr}));
     }
-    const selected = rows.findIndex(row => row.cells[0].textContent === preferredYear);
-    inspect(selected >= 0 ? selected : rows.length - 1);
-    slider.addEventListener("input", () => inspect(Number(slider.value)));
-    chart.addEventListener("pointermove", event => {
-      if (event.pointerType !== "mouse") return;
-      const transform = chart.getScreenCTM();
-      if (!transform) return;
-      const x = new DOMPoint(event.clientX, event.clientY).matrixTransform(transform.inverse()).x;
-      const i = positions.findIndex((v, j) => j + 1 === positions.length || x < (v + positions[j + 1]) / 2);
-      inspect(i);
-    });
-    chart.addEventListener("focusin", event => {
-      const mark = event.target.closest("a")?.querySelector("circle");
-      if (mark) inspect(positions.indexOf(Number(mark.getAttribute("cx"))));
-    });
+    const initial=rows.findIndex(r=>r.cells[0].textContent===preferredYear);
+    focusYear(initial<0?rows.length-1:initial);
+    pin.onclick=()=>{
+      reference=reference<0?selected:-1;pin.setAttribute("aria-pressed",String(reference>=0));
+      pin.textContent=reference<0?"设为对照年":"取消对照 · "+rows[reference].cells[0].textContent;
+      ref.setAttribute("visibility",reference<0?"hidden":"visible");
+      if(reference>=0){ref.setAttribute("x1",rows[reference].dataset.x);ref.setAttribute("x2",rows[reference].dataset.x);}
+      focusYear(selected,true);
+    };
+    slider.oninput=()=>focusYear(Number(slider.value));
+    const inspect=event=>{
+      const transform=chart.getScreenCTM();if(!transform)return;
+      const px=new DOMPoint(event.clientX,event.clientY).matrixTransform(transform.inverse()).x;
+      if(px<Number(rows[0].dataset.x)-8||px>Number(rows.at(-1).dataset.x)+8)return;
+      focusYear(rows.findIndex((r,j)=>j===rows.length-1||px<(Number(r.dataset.x)+Number(rows[j+1].dataset.x))/2));
+    };
+    chart.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")inspect(e);});
+    chart.addEventListener("pointerdown",inspect);
+    chart.addEventListener("focusin",e=>{const a=e.target.closest("[data-i]");if(a)focusYear(Number(a.dataset.i));});
   }
 }
 
@@ -272,44 +175,17 @@ export function compositionCell(cell, topic) {
   return {...cell, total: cell.total - cell.excludedFromTopics, coded: cell.coded - cell.excludedFromTopics};
 }
 
-export function compositionFigure(data, code, label, topic = false) {
-  const years = Object.keys(data).sort();
-  if (!years.length) return "";
-  const sources = [["top5", "五大刊"], ["nber", "NBER"]];
-  const complete = cell => cell.total > 0 && cell.total === cell.coded;
-  const share = cell => 100 * (cell.counts[code] || 0) / cell.total;
-  const totals = sources.map(([key, name]) => {
-    const cells = years.map(y => compositionCell(data[y][key], topic));
-    return name + " " + cells.reduce((s,c) => s+c.coded,0) + " / " + cells.reduce((s,c) => s+c.total,0) + " 篇";
-  });
-  const coverage = '<p class="meta">全文标签覆盖 · ' + totals.join("　·　") + '</p>';
-  if (!years.some(y => sources.some(([key]) => complete(compositionCell(data[y][key], topic))))) {
-    return coverage + '<p>首个来源年度完成全文标注后，这里将显示年度占比。</p>';
-  }
-  const width = 700, height = 198, left = 40, right = 665, base = 166;
-  const x = i => left + i * (right-left) / Math.max(1,years.length-1);
-  const y = pct => base - pct * 1.46;
-  const grid = [0,25,50,75,100].map(n => `<line x1="${left}" x2="${right}" y1="${y(n)}" y2="${y(n)}"/><text x="33" y="${y(n)+4}" text-anchor="end">${n}%</text>`).join("");
-  const ticks = years.map((v,i) => i % 5 === 0 || i === years.length-1 ? `<text x="${x(i)}" y="190" text-anchor="middle">${v}</text>` : "").join("");
-  const series = sources.map(([key,name],j) => {
-    let previous, marks = "";
-    for (const [i,year] of years.entries()) {
-      const cell = compositionCell(data[year][key], topic);
-      if (!complete(cell)) { previous = null; continue; }
-      const point = x(i) + "," + y(share(cell));
-      if (previous) marks += `<polyline points="${previous} ${point}"/>`;
-      marks += `<circle cx="${x(i)}" cy="${y(share(cell))}" r="4"><title>${year} · ${name} · ${share(cell).toFixed(1)}%（${cell.counts[code] || 0}/${cell.total}）</title></circle>`;
-      previous = point;
-    }
-    return `<g class="series s${j}">${marks}</g>`;
-  }).join("");
-  const rows = years.map(year => "<tr><th>" + year + "</th>" + sources.map(([key]) => {
-    const c = compositionCell(data[year][key], topic);
-    const value = complete(c) ? share(c).toFixed(1) + "%（" + (c.counts[code] || 0) + "/" + c.total + "）"
-      : c.total ? "已标 " + c.coded + "/" + c.total : "无论文";
-    return "<td>" + value + "</td>";
-  }).join("") + "</tr>").join("");
-  return coverage + `<svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeText(label)}年度占比">${grid}${ticks}${series}</svg><small>砖红实线 · 五大刊　深色虚线 · NBER</small><details class="numbers"><summary>查看各年占比与覆盖篇数</summary><table><thead><tr><th>年份</th><th>五大刊</th><th>NBER</th></tr></thead><tbody>${rows}</tbody></table></details>`;
+export function compositionFigure(data, code, label, group = "data") {
+  const years=Object.keys(data).sort();
+  const field={data:"dataset", methods:"technique", topics:"topic"}[group];
+  const series=[["top5","五大刊"],["nber","NBER"]].map(([key,name])=>({name,points:years.map(year=>{
+    const cell=compositionCell(data[year][key],group==="topics");
+    const complete=cell.total>0 && cell.total===cell.coded;
+    return {year,count:complete?(cell.counts[code]||0):null,total:cell.total,
+      missing:cell.total?"已标 "+cell.coded+"/"+cell.total:"无论文",
+      link:routeLink(key,{year,[field]:label,series:key==="top5"?"trend":"",focus:"list"})};
+  })}));
+  return lineFigure(series,true,label+"在健康研究中的年度占比");
 }
 
 export function bars(items) {
