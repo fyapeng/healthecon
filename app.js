@@ -5,10 +5,11 @@ import {
   lineFigure,
   activateFigures,
   compositionFigure,
+  compositionCell,
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=ec987d35e2";
+} from "./figures.js?v=ec987d35e2-33e283d32079";
 const el = document.querySelector("#app");
 const apiBase = document.querySelector('meta[name="healthecon-api"]')?.content;
 const apiPapers = new Map();
@@ -52,11 +53,16 @@ function loadSummaries() {
     .catch(error => { summaryRequest = undefined; throw error; });
 }
 function topicsFor(w) {
-  const names = [w.topic, ...Object.keys(readingIndex[w.id] || {}), ...(summaryIndex[w.id]?.tags || [])];
+  const entry = summaryIndex[w.id];
+  if (entry?.includeInTopics === false) return [];
+  const names = entry?.tagStage === "editorial" ? entry.tags :
+    [w.topic, ...Object.keys(readingIndex[w.id] || {}), ...(entry?.tags || [])];
   return [...new Set(names.map(n => topicAliases.get(n)).filter(Boolean))];
 }
 function labelsFor(w, group) {
-  const all = new Set([...Object.keys(readingIndex[w.id] || {}), ...(summaryIndex[w.id]?.tags || [])]);
+  const entry = summaryIndex[w.id];
+  const all = new Set(entry?.tagStage === "editorial" ? entry.tags :
+    [...Object.keys(readingIndex[w.id] || {}), ...(entry?.tags || [])]);
   return Object.values(taxonomy[group]).filter(name => all.has(name));
 }
 function badgesFor(w) {
@@ -260,7 +266,7 @@ function updateTopSide(section, year) {
     return;
   }
   const key = (venue || "top5") + (scope === "trend" ? "" : ":" + scope);
-  const cell = composition[year][key];
+  const cell = compositionCell(composition[year][key], group === "topics");
   const items = tagItems(group);
   const head = `<p class="meta">${esc(venue || "五刊合计")} · 已标注 ${cell.coded} / ${cell.total} 篇</p>`;
   if (!cell.coded) { body.innerHTML = head + (cell.total ? "<p>该年度尚无已标注论文。</p>" : "<p>该年度无收录论文。</p>"); return; }
@@ -539,7 +545,7 @@ function render() {
   activateFigures(el, p.get("year") || (stats && (page === "top5" || page === "nber" ? latestYear() : String(Number(latestYear()) - 1))));
   const tag = el.querySelector("#composition-tag");
   if (tag) tag.onchange = () => {
-    el.querySelector("#composition-figure").innerHTML = compositionFigure(composition,tag.value,tag.selectedOptions[0].textContent);
+    el.querySelector("#composition-figure").innerHTML = compositionFigure(composition,tag.value,tag.selectedOptions[0].textContent, Object.hasOwn(taxonomy.topics, tag.value));
   };
   document.querySelectorAll("nav a").forEach((a) => {
     if (

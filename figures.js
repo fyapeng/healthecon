@@ -267,18 +267,23 @@ export function activateFigures(root, preferredYear) {
 }
 
 // Each source can finish a different set of years. Break the line at every gap.
-export function compositionFigure(data, code, label) {
+export function compositionCell(cell, topic) {
+  if (!topic || !cell.excludedFromTopics) return cell;
+  return {...cell, total: cell.total - cell.excludedFromTopics, coded: cell.coded - cell.excludedFromTopics};
+}
+
+export function compositionFigure(data, code, label, topic = false) {
   const years = Object.keys(data).sort();
   if (!years.length) return "";
   const sources = [["top5", "五大刊"], ["nber", "NBER"]];
   const complete = cell => cell.total > 0 && cell.total === cell.coded;
   const share = cell => 100 * (cell.counts[code] || 0) / cell.total;
   const totals = sources.map(([key, name]) => {
-    const cells = years.map(y => data[y][key]);
+    const cells = years.map(y => compositionCell(data[y][key], topic));
     return name + " " + cells.reduce((s,c) => s+c.coded,0) + " / " + cells.reduce((s,c) => s+c.total,0) + " 篇";
   });
   const coverage = '<p class="meta">全文标签覆盖 · ' + totals.join("　·　") + '</p>';
-  if (!years.some(y => sources.some(([key]) => complete(data[y][key])))) {
+  if (!years.some(y => sources.some(([key]) => complete(compositionCell(data[y][key], topic))))) {
     return coverage + '<p>首个来源年度完成全文标注后，这里将显示年度占比。</p>';
   }
   const width = 700, height = 198, left = 40, right = 665, base = 166;
@@ -289,7 +294,7 @@ export function compositionFigure(data, code, label) {
   const series = sources.map(([key,name],j) => {
     let previous, marks = "";
     for (const [i,year] of years.entries()) {
-      const cell = data[year][key];
+      const cell = compositionCell(data[year][key], topic);
       if (!complete(cell)) { previous = null; continue; }
       const point = x(i) + "," + y(share(cell));
       if (previous) marks += `<polyline points="${previous} ${point}"/>`;
@@ -299,7 +304,7 @@ export function compositionFigure(data, code, label) {
     return `<g class="series s${j}">${marks}</g>`;
   }).join("");
   const rows = years.map(year => "<tr><th>" + year + "</th>" + sources.map(([key]) => {
-    const c = data[year][key];
+    const c = compositionCell(data[year][key], topic);
     const value = complete(c) ? share(c).toFixed(1) + "%（" + (c.counts[code] || 0) + "/" + c.total + "）"
       : c.total ? "已标 " + c.coded + "/" + c.total : "无论文";
     return "<td>" + value + "</td>";
