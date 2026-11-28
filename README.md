@@ -6,7 +6,7 @@
 
 ## 当前快照
 
-目录按 2003–2026 年组织，2026 年截至 11 月 24 日。网站可检索 13,336 条书目，每条都有中文题名。其中 12,795 条有原始摘要，并附中文译文。健康研究目录共 4,189 条，其余文献可从跨学科目录检索。独立卷期核对覆盖 2010–2025 年。五刊长期目录、NBER 项目和 arXiv 分类各自使用不同的分子、分母和时间定义。各年的分子、分母与核心字段见公开数据说明。
+目录自 2003 年起按月更新。五大刊栏目默认展示已编入卷期的研究论文，另设提前在线论文、讲座与评论的入口。NBER 按工作论文首次发布年记录。[当前收录篇数、摘要覆盖与统计口径](https://fyapeng.com/healthecon/#about)随网站同步更新。
 
 ## 本地运行
 
@@ -20,12 +20,12 @@
 - europe_pmc.py 和 specialist_catalog.py 按 ISSN 分别取得摘要和专业期刊卷期记录，接收缓存目录与 --cutoff。书目补全保留原文来源。首次生成公开索引后，可运行 abstract_gaps.py 以仍缺摘要的 DOI 跨刊补查，运行 crossref_abstracts.py 按刊比对出版社提交的摘要，再生成索引。
 - 专业期刊卷期、欧洲PMC、跨刊摘要、出版社摘要等缓存目录位于本地书目项目的“采集”目录下。研究型论文与期务/待核记录的原始处理见 document_types.py、data/document_audit.json。archive-curation.json 存放增补选录与主题；最终分组、版本关系和去重理由见 reading_archive.py。
 - 完整书目生成后，在本机运行翻译服务（HY-MT1.5-1.8B，llama.cpp 的 18244 端口），执行 `python scripts/translate_local.py` 续译缺失字段，再用 `python scripts/translate_local.py --apply` 合入中文。译文按原文校验值保存在本地，重建也会保留原文相同的已发布译文。
-- [Econ Journal Authors 的冻结卷期目录](https://github.com/kochiuyu/econ-journal-authors/tree/c54c997888859067223103b659f4ee98d059b71b/releases/articles_toc_2010_2025)采用 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。本站按刊年选取记录，校正会议期标记并汇总。首页摄影选自美国国家美术馆公有领域馆藏 [William A. Fraser, Wet Night, Columbus Circle, New York (1899)](https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york)。
+- [Econ Journal Authors 的冻结卷期目录](https://github.com/kochiuyu/econ-journal-authors/tree/c54c997888859067223103b659f4ee98d059b71b/releases/articles_toc_2010_2025)采用 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。本站按刊年选取记录，校正会议期标记并汇总。
 
 本地采集 JHE 的卷期字段可运行 `scripts/jhe_issues.py <书目项目>/采集/JHE卷期/0167-6296.json`，再重建索引。卷期号来自 Crossref 出版者记录，年份沿用已核对的本站目录。
 HE 的卷期缓存使用相同命令，指定 `--issn 1057-9230`，文件名为 `1057-9230.json`。人工补译保存在 `data/editorial-translations.json`。批量译文随索引和各年摘要一起发布，保留原始题名和摘要供读者对照。
 
-首页雨夜照片按展示构图提供三档 WebP 尺寸，图注链接到完整馆藏照片。界面拉丁字符使用本地托管的 [Source Sans 3](https://github.com/adobe-fonts/source-sans)，拉丁子集由 [Fontsource](https://fontsource.org/fonts/source-sans-3) 分发，授权见 [OFL](assets/fonts/OFL.txt)。
+首页每月选读一篇五大刊研究。摄影与艺术作品的图注注明作者、年代与馆藏，并链接至原作。界面拉丁字符使用本地托管的 [Source Sans 3](https://github.com/adobe-fonts/source-sans)，拉丁子集由 [Fontsource](https://fontsource.org/fonts/source-sans-3) 分发，授权见 [OFL](assets/fonts/OFL.txt)。
 
 论文卡片可展开中英文摘要。已有文章总结的论文，点击标题可以独立阅读长总结，并核对每段和各标签所对应的正文页码。作者使用的资料与方法按本篇论文判定。综述中列举的其他研究保留在行文中。空缺标签表示尚无确认依据。
 
