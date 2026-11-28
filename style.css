@@ -880,3 +880,12 @@ summary {
 .paper-tags .label-method span {background:#e7eff3;border-color:#b9ccd6;color:#294e64}
 .paper-tags .label-data span {background:#e7efe8;border-color:#bdcfc0;color:#30563b}
 .study-body h3 {margin-top:1.6rem}
+.catalogue-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .35rem .65rem;
+  margin: .8rem 0 1.4rem;
+  font-variant-numeric: tabular-nums;
+}
+.catalogue-breakdown a { text-underline-offset: .19em; }

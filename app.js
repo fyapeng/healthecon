@@ -9,7 +9,7 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=ec987d35e2-0cc851a6f0d3";
+} from "./figures.js?v=ec987d35e2-9a8d6802ae58";
 const el = document.querySelector("#app");
 const localPreview = ["127.0.0.1","localhost"].includes(location.hostname) && location.port === "4173";
 if (localPreview) {
@@ -315,7 +315,7 @@ function channel(page, p) {
     (w) =>
       w.health &&
       (top
-        ? jnames.includes(w.venue) && (w.trend || isCurrent(w))
+        ? jnames.includes(w.venue)
         : w.venue === "NBER"),
   );
   const scope = top
@@ -356,12 +356,17 @@ function channel(page, p) {
     `<section data-quarter-side><span class="eyebrow">${esc(year)} 年</span><h2>${side}</h2><div class="side-body">${breakdown.length ? bars(breakdown) : "<p>暂无季度记录。</p>"}</div></section>`;
   return (
     titleblock(sourceNames[page], sourceTitles[page], intro) +
+    (top && stats.summary.regular != null ? topCatalogueLinks(stats.summary) : "") +
     `<div class="overview"><section><h2>年度${percent ? "占比" : "篇数"}</h2>${controls}${lineFigure([{ name: lineName, points }], percent, lineName + "年度趋势")}<p class="meta">${scope === "toc" ? "2010–2025 年完整卷期" : "更新至 " + esc(nber ? stats.nberLatest : stats.cutoff)}</p></section>${sidePanel}</div>` +
     library(p, page, corpus)
   );
 }
 function quarter(w) {
   return w.date ? String(Math.ceil(Number(w.date.slice(5, 7)) / 3)) : "";
+}
+function topCatalogueLinks(s) {
+  const link = (name,n,params) => `<a href="${esc(href("top5",{...params,focus:"list"}))}">${name} ${fmt(n)} 篇</a>`;
+  return `<p class="catalogue-breakdown">${link("卷期研究论文",s.regular,{series:"trend"})} · ${link("提前在线",s.online,{collection:"online"})} · ${link("讲座与评论",s.commentary,{collection:"commentary"})}　 ${link("全部收录",s.top5,{collection:"all"})}</p>`;
 }
 function library(p, page = "library", pool = works) {
   const general = page === "library",
@@ -372,7 +377,8 @@ function library(p, page = "library", pool = works) {
     volume = p.get("volume") || "";
   const q = (p.get("q") || "").trim(),
     sort = p.get("sort") || "recent",
-    series = p.get("series") || "";
+    collection = top ? p.get("collection") : "",
+    series = p.get("series") || (top && !collection && !p.get("period") && !p.get("set") ? "trend" : "");
   const unique = (key, source = pool) =>
     [...new Set(source.map((w) => w[key]).filter(value => value && value !== "待核"))].sort((a, b) =>
       String(a).localeCompare(String(b), "zh", { numeric: true }),
@@ -386,6 +392,8 @@ function library(p, page = "library", pool = works) {
       (p.get("scope") === "all" || w.health) &&
       (!venue || w.venue === venue) &&
       (!year || w.year === year) &&
+      (collection !== "online" || w.set === "本年在线") &&
+      (collection !== "commentary" || (!w.trend && w.set !== "本年在线" && w.articleType)) &&
       (!series ||
         (w.trend &&
           (series !== "toc" || w.inToc) &&
@@ -485,13 +493,14 @@ function library(p, page = "library", pool = works) {
     btn(label, page, { ...Object.fromEntries(p), page: n, focus: "list" });
   const context = [
     p.get("set"),
-    p.get("period") ? "本年清单" : "",
+    ({all:"全部收录",online:"提前在线",commentary:"讲座与评论"})[collection],
+    p.get("period") ? "本年度全部收录" : "",
     series === "toc"
       ? "独立卷期"
       : series === "issue"
         ? "本站卷期"
         : series === "trend"
-          ? "卷期发表"
+          ? "卷期研究论文"
           : "",
   ]
     .filter(Boolean)
@@ -531,15 +540,16 @@ function atlas() {
     ]));
 }
 function about() {
+  const s=stats?.summary;
   return `<article class="about-page"><h1>关于 healthecon</h1>
   <p class="about-lead">整理 2020—2024 年经济学五大刊的健康研究时，我想知道，哪些问题反复出现在这些期刊上？把时间再往前拉十年，看到的还是同一幅图景吗？这个网站就是从那份书单开始的。</p>
   <section><h2>从工作论文到期刊发表</h2><p>五大刊让人看到，健康议题何时进入综合经济学期刊。NBER 工作论文往往更早流通，适合追踪最近有哪些问题引起了研究者的兴趣。</p>
   <p>你可以从首页的一年开始，沿着折线找到当年的论文。也可以直接在<a href="#library">文献概览</a>里查作者和题名，展开摘要，把筛选后的书目导出。想随意翻翻，可以从<a href="#atlas">研究主题</a>里的一个问题读起。</p></section>
-  <section><h2>这些数字怎样读</h2><p>五大刊按卷期发表年计，NBER 按工作论文首次发布年计。“健康研究占多少”把当年的健康论文与同一来源的全部论文相比。NBER 的项目归属提供候选书目，本站按论文的研究问题和实际应用核定收录范围。一篇工作论文后来在期刊发表，两个来源会分别记录它。</p>
+  <section><h2>这些数字怎样读</h2>${s?.health != null ? `<p>截至 ${esc(stats.cutoff)}，<a href="#library">健康研究目录</a>收录 ${fmt(s.health)} 条记录，其中五大刊 ${fmt(s.top5)} 条、NBER ${fmt(s.nber)} 条、其他来源 ${fmt(s.other)} 条。<a href="#library?scope=all">全部书目</a>可检索 ${fmt(s.papers)} 条，其中 ${fmt(s.abstracts)} 条附原始摘要，${fmt(s.translated)} 条附中文摘要。</p>${topCatalogueLinks(s)}` : ""}<p>五大刊趋势按研究论文的卷期发表年统计，提前在线论文与讲座、评论可以在目录中单独查阅。NBER 按工作论文首次发布年统计。“健康研究占多少”把当年的健康论文与同一来源的全部研究论文相比。一篇工作论文后来在期刊发表，两个来源分别记录。</p>
   <p>数据、方法和主题的年度占比以该来源当年的健康论文为分母。一个年度完成全文标注后才会画出占比。同一篇可以使用多种方法，也可以讨论多个主题。</p>
   <p>首页默认的五刊占比使用 2010–2025 年独立核对的卷期目录。想看更早的年份，可以切换到 2003 年起的本站卷期目录。今年的数字会随新论文增加。发现漏收、误收或年份有误，欢迎在 <a href="https://github.com/fyapeng/healthecon/issues">GitHub 留言</a>，附上题名或 DOI 就好。</p></section>
   <section><h2>资料与致谢</h2><p>五刊卷期参考 <a href="https://github.com/kochiuyu/econ-journal-authors">Econ Journal Authors</a>（<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>），AER 采用常规期。2017 年及以前的年会专期与 2018 年起独立出版的 AEA Papers and Proceedings 均已从目录和统计中剔除。工作论文来自 <a href="https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata">NBER 公开书目</a>，历史项目按<a href="https://www.nber.org/programs-projects/programs-working-groups/economics-health">合并后的健康研究项目</a>回溯。各篇摘要标有来源。</p>
-  <p>首页雨夜街景摄于 1899 年，记录纽约哥伦布圆环的街灯。摄影师 William A. Fraser，公有领域作品，藏于<a href="https://www.nga.gov/artworks/127442-wet-night-columbus-circle-new-york">美国国家美术馆</a>。</p></section></article>`;
+  <p>网站每月更新。首页从五大刊选一篇研究，配一件与问题相关的摄影或艺术作品。点击图注可以查看馆藏原作。</p></section></article>`;
 }
 let exportRows = [];
 function render() {
@@ -617,6 +627,9 @@ function render() {
       next.delete("fulltext");
       for (const [key, value] of new FormData(form))
         value ? next.set(key, value) : next.delete(key);
+      if (page === "top5" && form.elements.series) {
+        for (const key of ["collection","period","set"]) next.delete(key);
+      }
       if (form.elements.showNber) {
         next.delete("showNber");
         if (form.elements.showNber.checked) next.delete("nber");
@@ -773,7 +786,7 @@ async function navigate() {
   const ticket = ++navigation,
     route = canonical(location.hash.slice(1).split("?")[0]);
   const params = new URLSearchParams(location.hash.split("?")[1]);
-  const needsStats = !["library", "paper", "about", "atlas"].includes(route);
+  const needsStats = !["library", "paper", "atlas"].includes(route);
   if (!el.dataset.rendered || el.dataset.route !== route) el.innerHTML = loadingView(route);
   el.setAttribute("aria-busy", "true");
   try {
