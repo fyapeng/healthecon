@@ -9,7 +9,7 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=ec987d35e2-33e283d32079";
+} from "./figures.js?v=ec987d35e2-a868268514a5";
 const el = document.querySelector("#app");
 const apiBase = document.querySelector('meta[name="healthecon-api"]')?.content;
 const apiPapers = new Map();
@@ -54,7 +54,8 @@ function loadSummaries() {
 }
 function topicsFor(w) {
   const entry = summaryIndex[w.id];
-  if (entry?.includeInTopics === false) return [];
+  if (!w.health || entry?.includeInTopics === false) return [];
+  if (apiBase) return [...new Set((entry?.tags || []).map(n => topicAliases.get(n)).filter(Boolean))];
   const names = entry?.tagStage === "editorial" ? entry.tags :
     [w.topic, ...Object.keys(readingIndex[w.id] || {}), ...(entry?.tags || [])];
   return [...new Set(names.map(n => topicAliases.get(n)).filter(Boolean))];
@@ -196,7 +197,7 @@ function homeSeries(venue, scope, compare) {
   const lines = [{ name: (venue || "五大刊") + " · 健康研究", points }];
   if (compare)
     lines.push({
-      name: "NBER · 健康项目",
+      name: "NBER · 健康研究",
       points: nberSeries(stats).filter((v) => years.has(v.year)),
     });
   return lineFigure(lines, true, "健康研究在各来源中的年度占比");
@@ -210,7 +211,7 @@ function homeFinding(venue, scope, compare) {
   const statements = [`${end.year} 年，${subject}共发表 ${end.count} 篇健康研究，占当年论文的 ${pct(end)}，上一年为 ${pct(previous)}。`];
   const nber = stats.nber[end.year];
   if (compare && nber?.[1])
-    statements.push(`同年，NBER 每发表 100 篇工作论文，约有 ${Math.round(100 * nber[0] / nber[1])} 篇属于健康研究项目。`);
+    statements.push(`同年，NBER 每发表 100 篇工作论文，约有 ${Math.round(100 * nber[0] / nber[1])} 篇研究健康与医疗问题。`);
   return statements.join("");
 }
 function homeFeature() {
@@ -230,7 +231,7 @@ function home(p) {
     ${homeComposition()}
     <section class="shelf"><h2>${year} 年的研究</h2><p class="meta">截至 ${esc(stats.cutoff)}，本年累计</p><div class="editions">${[
       ["top5", "五大刊 · 卷期发表", topSeries(stats, "", "trend").at(-1).count],
-      ["nber", "NBER · 健康项目", stats.nber[year][0]],
+      ["nber", "NBER · 健康研究", stats.nber[year][0]],
     ].map(([source, label, count]) =>
       `<a href="${href(source, { year, series: source === "top5" ? "trend" : "" })}"><span>${label}</span><strong>${count} <small>篇</small></strong><em>浏览论文 →</em></a>`
     ).join("")}</div></section>`;
@@ -323,10 +324,10 @@ function channel(page, p) {
   }
   const intro = top
     ? "查阅五大经济学期刊中的健康研究，比较不同期刊的发表数量与占比。"
-    : "按首次发布年份，阅读 NBER 健康经济学项目的工作论文。";
+    : "按首次发布年份，阅读 NBER 中研究健康与医疗问题的工作论文。";
   const controls = top
     ? `<form class="controls compact" data-auto>${select("venue", "五大刊合计", jnames, venue)}<select name="series" aria-label="图表指标"><option value="trend">发表篇数</option><option value="toc" ${scope === "toc" ? "selected" : ""}>年度占比 · 核对卷期</option><option value="issue" ${scope === "issue" ? "selected" : ""}>年度占比 · 收录卷期</option></select></form>`
-    : `<form class="controls compact" data-auto><select name="metric" aria-label="图表指标"><option value="share">项目占比</option><option value="count" ${!percent ? "selected" : ""}>发布篇数</option></select></form>`;
+    : `<form class="controls compact" data-auto><select name="metric" aria-label="图表指标"><option value="share">健康研究占比</option><option value="count" ${!percent ? "selected" : ""}>发布篇数</option></select></form>`;
   const sidePanel = top ? `<section data-top-side data-venue="${esc(venue)}" data-scope="${esc(scope)}"><span class="eyebrow">${esc(year)} 年</span><h2>年度构成</h2>${composition ? '<label>查看 <select aria-label="年度构成指标"><option value="journals">各刊收录篇数</option>' + Object.entries(dimensions).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join("") + '</select></label>' : '<p>各刊收录篇数</p>'}<div class="side-body"></div></section>` :
     `<section><span class="eyebrow">${esc(year)} 年</span><h2>${side}</h2>${breakdown.length ? bars(breakdown) : "<p>暂无季度记录。</p>"}</section>`;
   return (
@@ -510,7 +511,7 @@ function about() {
   <p class="about-lead">整理 2020—2024 年经济学五大刊的健康研究时，我想知道，哪些问题反复出现在这些期刊上？把时间再往前拉十年，看到的还是同一幅图景吗？这个网站就是从那份书单开始的。</p>
   <section><h2>从工作论文到期刊发表</h2><p>五大刊让人看到，健康议题何时进入综合经济学期刊。NBER 工作论文往往更早流通，适合追踪最近有哪些问题引起了研究者的兴趣。</p>
   <p>你可以从首页的一年开始，沿着折线找到当年的论文。也可以直接在<a href="#library">文献概览</a>里查作者和题名，展开摘要，把筛选后的书目导出。想随意翻翻，可以从<a href="#atlas">研究主题</a>里的一个问题读起。</p></section>
-  <section><h2>这些数字怎样读</h2><p>五大刊按卷期发表年计，NBER 按工作论文首次发布年计。“健康研究占多少”把当年的健康论文与同一来源的全部论文相比。五大刊依据本站逐篇选录，NBER 依据健康研究项目归属。一篇工作论文后来在期刊发表，两个来源会分别记录它。</p>
+  <section><h2>这些数字怎样读</h2><p>五大刊按卷期发表年计，NBER 按工作论文首次发布年计。“健康研究占多少”把当年的健康论文与同一来源的全部论文相比。NBER 的项目归属提供候选书目，本站按论文的研究问题和实际应用核定收录范围。一篇工作论文后来在期刊发表，两个来源会分别记录它。</p>
   <p>数据、方法和主题的年度占比以该来源当年的健康论文为分母。一个年度完成全文标注后才会画出占比。同一篇可以使用多种方法，也可以讨论多个主题。</p>
   <p>首页默认的五刊占比使用 2010–2025 年独立核对的卷期目录。想看更早的年份，可以切换到 2003 年起的本站卷期目录。今年的数字会随新论文增加。发现漏收、误收或年份有误，欢迎在 <a href="https://github.com/fyapeng/healthecon/issues">GitHub 留言</a>，附上题名或 DOI 就好。</p></section>
   <section><h2>资料与致谢</h2><p>五刊卷期参考 <a href="https://github.com/kochiuyu/econ-journal-authors">Econ Journal Authors</a>（<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>），AER 采用常规期。2017 年及以前的年会专期与 2018 年起独立出版的 AEA Papers and Proceedings 均已从目录和统计中剔除。工作论文来自 <a href="https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata">NBER 公开书目</a>，历史项目按<a href="https://www.nber.org/programs-projects/programs-working-groups/economics-health">合并后的健康研究项目</a>回溯。各篇摘要标有来源。</p>
