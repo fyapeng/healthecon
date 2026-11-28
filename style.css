@@ -203,6 +203,11 @@ h3 {
   height: auto;
   display: block;
 }
+.feature-title {
+  margin: -.4rem 0 .8rem;
+  color: var(--accent);
+  font: italic 1.08rem/1.4 var(--serif);
+}
 .hero .actions {
   margin-top: 23px;
   font: 15px var(--serif);
@@ -694,7 +699,8 @@ summary {
 .hero .cover-print img {
   width: 100%;
   height: auto;
-  aspect-ratio: 1.87;
+  aspect-ratio: auto;
+  max-height: none;
   object-fit: cover;
   object-position: 50% 57%;
 }

@@ -9,7 +9,7 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=ec987d35e2-9a8d6802ae58";
+} from "./figures.js?v=ec987d35e2-cb49d4a1a829";
 const el = document.querySelector("#app");
 const localPreview = ["127.0.0.1","localhost"].includes(location.hostname) && location.port === "4173";
 if (localPreview) {
@@ -243,7 +243,7 @@ function homeFeature() {
   const base = "assets/" + encodeURIComponent(art.base);
   const source = /^https:\/\//.test(art.source) ? esc(art.source) : "#";
   return `<p class="definition"><strong>用经济学理解健康与医疗中的取舍。</strong></p>
-    <div class="hero"><div class="copy"><p class="eyebrow">${esc(feature.series)}</p><h1>${feature.headline.map(esc).join("<br>")}</h1><p>${esc(feature.description)}</p><div class="actions">${btn("看研究摘要 →","paper",{id:feature.paper})}<span>${esc(feature.date)}</span></div></div><figure class="cover-print"><a href="${source}" aria-label="查看馆藏完整照片"><img src="${base}-760.webp" srcset="${base}-480.webp 480w, ${base}-760.webp 760w, ${base}-1000.webp 1000w" sizes="(max-width: 650px) 91vw, (max-width: 850px) calc(54vw - 12px), (max-width: 1494px) 51.65vw, 775px" alt="${esc(art.alt)}" width="${Number(art.width)}" height="${Number(art.height)}" fetchpriority="high"></a><figcaption>${esc(art.caption)} <a href="${source}">${esc(art.credit)} ↗</a></figcaption></figure></div>`;
+    <div class="hero"><div class="copy"><p class="eyebrow">${esc(feature.series)}</p><h1>${feature.headline.map(esc).join("<br>")}</h1>${feature.shortTitle ? `<div class="feature-title" lang="en">${esc(feature.shortTitle)}</div>` : ""}<p>${esc(feature.description)}</p><div class="actions">${btn("看研究摘要 →","paper",{id:feature.paper})}<span>${esc(feature.date)}</span></div></div><figure class="cover-print"><a href="${source}" aria-label="查看原始摄影作品"><img src="${base}-760.webp" srcset="${base}-480.webp 480w, ${base}-760.webp 760w, ${base}-1000.webp 1000w" sizes="(max-width: 650px) 91vw, (max-width: 850px) calc(54vw - 12px), (max-width: 1494px) 51.65vw, 775px" alt="${esc(art.alt)}" width="${Number(art.width)}" height="${Number(art.height)}" fetchpriority="high"></a><figcaption>${esc(art.caption)} <a href="${source}">${esc(art.credit)} ↗</a></figcaption></figure></div>`;
 }
 function home(p) {
   const venue = jnames.includes(p.get("venue")) ? p.get("venue") : "";
@@ -549,7 +549,7 @@ function about() {
   <p>数据、方法和主题的年度占比以该来源当年的健康论文为分母。一个年度完成全文标注后才会画出占比。同一篇可以使用多种方法，也可以讨论多个主题。</p>
   <p>首页默认的五刊占比使用 2010–2025 年独立核对的卷期目录。想看更早的年份，可以切换到 2003 年起的本站卷期目录。今年的数字会随新论文增加。发现漏收、误收或年份有误，欢迎在 <a href="https://github.com/fyapeng/healthecon/issues">GitHub 留言</a>，附上题名或 DOI 就好。</p></section>
   <section><h2>资料与致谢</h2><p>五刊卷期参考 <a href="https://github.com/kochiuyu/econ-journal-authors">Econ Journal Authors</a>（<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>），AER 采用常规期。2017 年及以前的年会专期与 2018 年起独立出版的 AEA Papers and Proceedings 均已从目录和统计中剔除。工作论文来自 <a href="https://www.nber.org/research/data/nber-working-papers-and-chapters-metadata">NBER 公开书目</a>，历史项目按<a href="https://www.nber.org/programs-projects/programs-working-groups/economics-health">合并后的健康研究项目</a>回溯。各篇摘要标有来源。</p>
-  <p>网站每月更新。首页从五大刊选一篇研究，配一件与问题相关的摄影或艺术作品。点击图注可以查看馆藏原作。</p></section></article>`;
+  <p>网站每月更新。首页选读配有与研究问题相关的摄影或艺术作品，点击图注可查看原作。</p></section></article>`;
 }
 let exportRows = [];
 function render() {
