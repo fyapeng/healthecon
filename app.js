@@ -9,7 +9,7 @@ import {
   topSeries,
   nberSeries,
   bars,
-} from "./figures.js?v=ec987d35e2-a868268514a5";
+} from "./figures.js?v=ec987d35e2-aba60747512a";
 const el = document.querySelector("#app");
 const apiBase = document.querySelector('meta[name="healthecon-api"]')?.content;
 const apiPapers = new Map();
@@ -62,7 +62,7 @@ function topicsFor(w) {
 }
 function labelsFor(w, group) {
   const entry = summaryIndex[w.id];
-  const all = new Set(entry?.tagStage === "editorial" ? entry.tags :
+  const all = new Set((apiBase && entry) || entry?.tagStage === "editorial" ? (entry.tags || []) :
     [...Object.keys(readingIndex[w.id] || {}), ...(entry?.tags || [])]);
   return Object.values(taxonomy[group]).filter(name => all.has(name));
 }
@@ -164,7 +164,8 @@ async function showStudy(section) {
     if (summaryIndex[key]?.hasSummary) {
       const sections = (apiBase ? (await apiPaper(key)).summary : (await get("summaries/" + year))[key]).sections;
       const note = summaryIndex[key].sourceNote;
-      const stage = summaryIndex[key].summaryStage === "first" ? '<p class="meta">中文初译 · 尚未复核' + (note ? " · "+esc(note) : "") + '</p>' : "";
+      const credits = [summaryIndex[key].summaryStage === "first" ? "中文初译 · 尚未复核" : "", note].filter(Boolean);
+      const stage = credits.length ? '<p class="meta">' + credits.map(esc).join(" · ") + '</p>' : "";
       box.innerHTML = stage + sections.map(s => `<section><h3>${esc(s.name)}</h3>${s.paragraphs.map(t=>`<p>${esc(t)}</p>`).join("")}</section>`).join("");
       return;
     }
